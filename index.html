@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TIMER＆SCOREBOARD</title>
-   <meta property="og:title" content="TIMER＆SCOREBOARD">
-    <meta property="og:description" content="【体育】シャトルラン/タイマー/スコアボードのアプリです。">
-    <meta property="og:type" content="website">
+  <title>体育館用 デジタルタイマー＆得点板</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: デジタル数字用のOrbitronと日本語用のNoto Sans JP -->
@@ -303,19 +300,13 @@
         
         <!-- 1. シャトルラン設定 -->
         <div id="panel-shuttle" class="mode-panel space-y-5">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
-            <div>
-              <h2 class="text-xl md:text-2xl font-bold text-emerald-400 flex items-center gap-2">
-                <i class="fa-solid fa-volume-up"></i> 20mシャトルラン（往復持久走）設定
-              </h2>
-              <p class="text-sm md:text-base text-neutral-300 mt-1">
-                文部科学省「新体力テスト」実施要項準拠の速度プログラムと音階（ドレミファソラシド♪）を自動再生します。
-              </p>
-            </div>
-            <div class="bg-neutral-950 px-5 py-3.5 rounded-2xl border border-neutral-800 text-right">
-              <div class="text-xs text-neutral-400">最大回数 / 初期速度</div>
-              <div class="font-bold text-base md:text-lg text-emerald-400">247回 / 8.5 km/h (約8.47秒)</div>
-            </div>
+          <div class="border-b border-neutral-800 pb-4">
+            <h2 class="text-xl md:text-2xl font-bold text-emerald-400 flex items-center gap-2">
+              <i class="fa-solid fa-volume-up"></i> 20mシャトルラン（往復持久走）設定
+            </h2>
+            <p class="text-sm md:text-base text-neutral-300 mt-1">
+              文部科学省「新体力テスト」実施要項準拠の速度プログラムと音階（ドレミファソラシド♪）を自動再生します。
+            </p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -557,7 +548,7 @@
           <i class="fa-solid fa-expand"></i>
         </button>
         <button onclick="returnToSetup()" class="px-4 py-2.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700 text-white text-sm font-bold flex items-center gap-2">
-          <i class="fa-solid fa-gear"></i> 設定に戻る
+          <i class="fa-solid fa-gear"></i> 設定
         </button>
       </div>
     </div>
