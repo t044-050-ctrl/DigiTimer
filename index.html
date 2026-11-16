@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DigiTimer</title>
-   <meta property="og:title" content="DigiTimer">
-    <meta property="og:description" content="【体育】シャトルラン/タイマー/スコアボードのアプリです。">
-    <meta property="og:type" content="website">
+  <title>体育館用 デジタルタイマー＆得点板</title>
+  <!-- タイトルバー／ブラウザタブ用アイコン（ヘッダー左のストップウォッチと同じデザイン） -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23dc2626'/%3E%3Ccircle cx='32' cy='35' r='18' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M32 35V23 M32 35l10 6 M25 8h14 M32 8v8 M45 17l5-5' fill='none' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: デジタル数字用のOrbitronと日本語用のNoto Sans JP -->
@@ -1493,7 +1492,9 @@
           isRunning = false;
           stopLoop();
           updateStartPauseButton();
-          showToast(`第${timerState.currentPeriod}ピリオドの準備完了`);
+          showToast(timerConfig.totalPeriods === 2
+            ? (timerState.currentPeriod === 2 ? '後半の準備完了' : '前半の準備完了')
+            : `第${timerState.currentPeriod}試合の準備完了`);
           renderTimer();
           return;
         } else {
@@ -1548,9 +1549,9 @@
       if (timerState.isInterval) return 'INTERVAL（休憩）';
       if (timerConfig.totalPeriods <= 1) return '';
       if (timerConfig.totalPeriods === 2) {
-        return timerState.currentPeriod === 1 ? '前半（1ST HALF）' : '後半（2ND HALF）';
+        return timerState.currentPeriod === 1 ? '前半' : '後半';
       }
-      return `第 ${timerState.currentPeriod} クォーター / 全${timerConfig.totalPeriods}Q`;
+      return `第${timerState.currentPeriod}試合`;
     }
 
     function renderTimer() {
@@ -1590,7 +1591,13 @@
 
       // 小型タイマー連動表示
       renderSevenSegment(miniDigits, text);
-      document.getElementById('mini-timer-period').textContent = timerState.isInterval ? 'REST' : `P${timerState.currentPeriod}`;
+      document.getElementById('mini-timer-period').textContent = timerState.isInterval
+        ? 'REST'
+        : timerConfig.totalPeriods === 2
+          ? (timerState.currentPeriod === 1 ? '前半' : '後半')
+          : timerConfig.totalPeriods >= 3
+            ? `第${timerState.currentPeriod}試合`
+            : 'TIME';
     }
 
     // ==================== 3. ストップウォッチ ロジック ====================
