@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TIMER＆SCOREBOARD</title>
-   <meta property="og:title" content="TIMER＆SCOREBOARD">
-    <meta property="og:description" content="【体育】シャトルラン/タイマー/スコアボードのアプリです。">
-    <meta property="og:type" content="website">
+  <title>体育館用 デジタルタイマー＆得点板</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: デジタル数字用のOrbitronと日本語用のNoto Sans JP -->
@@ -399,7 +396,7 @@
                 <span>競技名ラベル</span>
                 <button type="button" onclick="openFlickKeyboard('timer-label')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
               </label>
-              <input type="text" id="timer-label" value="バスケットボール" onfocus="openFlickKeyboard('timer-label')" class="w-full h-14 bg-neutral-800 text-white text-base rounded-xl px-4 font-bold border border-neutral-700">
+              <input type="text" id="timer-label" value="バスケットボール" class="w-full h-14 bg-neutral-800 text-white text-base rounded-xl px-4 font-bold border border-neutral-700">
             </div>
           </div>
 
@@ -454,7 +451,7 @@
                 <span class="text-sm font-bold text-neutral-300">左チーム（任意・空欄可）</span>
                 <button type="button" onclick="openFlickKeyboard('sb-left-name')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
               </div>
-              <input type="text" id="sb-left-name" value="" placeholder="チーム名（空欄ならバーのみ）" onfocus="openFlickKeyboard('sb-left-name')" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
+              <input type="text" id="sb-left-name" value="" placeholder="チーム名（空欄ならバーのみ）" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
               <div class="flex items-center justify-between pt-1">
                 <span class="text-sm text-neutral-400 font-bold">カラー:</span>
                 <div class="flex items-center gap-2">
@@ -492,7 +489,7 @@
                 <span class="text-sm font-bold text-neutral-300">右チーム（任意・空欄可）</span>
                 <button type="button" onclick="openFlickKeyboard('sb-right-name')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
               </div>
-              <input type="text" id="sb-right-name" value="" placeholder="チーム名（空欄ならバーのみ）" onfocus="openFlickKeyboard('sb-right-name')" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
+              <input type="text" id="sb-right-name" value="" placeholder="チーム名（空欄ならバーのみ）" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
               <div class="flex items-center justify-between pt-1">
                 <span class="text-sm text-neutral-400 font-bold">カラー:</span>
                 <div class="flex items-center gap-2">
@@ -653,7 +650,7 @@
           <div class="text-[10px] md:text-xs font-bold text-neutral-400 tracking-widest">SET</div>
           
           <!-- セット数表示カード -->
-          <div class="flex flex-col items-center bg-neutral-900 border border-neutral-700 rounded-2xl p-1.5 md:p-2 w-full">
+          <div id="set-left-card" class="flex flex-col items-center bg-neutral-900 border-2 border-red-600 rounded-2xl p-1.5 md:p-2 w-full transition-colors">
             <button onclick="changeSet('left', 1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-up"></i></button>
             <div id="set-left-val" class="seg-display seg-theme-amber my-0.5" style="font-size: min(4.5vw, 8vh);"></div>
             <button onclick="changeSet('left', -1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-down"></i></button>
@@ -663,7 +660,7 @@
             <i class="fa-solid fa-right-left"></i>
           </button>
 
-          <div class="flex flex-col items-center bg-neutral-900 border border-neutral-700 rounded-2xl p-1.5 md:p-2 w-full">
+          <div id="set-right-card" class="flex flex-col items-center bg-neutral-900 border-2 border-blue-600 rounded-2xl p-1.5 md:p-2 w-full transition-colors">
             <button onclick="changeSet('right', 1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-up"></i></button>
             <div id="set-right-val" class="seg-display seg-theme-amber my-0.5" style="font-size: min(4.5vw, 8vh);"></div>
             <button onclick="changeSet('right', -1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-down"></i></button>
@@ -899,12 +896,12 @@
 
     // 得点板状態（カラーバー塗りつぶし＋文字白抜き/黄色は黒文字・オレンジ追加）
     const teamColors = [
-      { id: 'red',    barBg: 'bg-red-600',     barText: 'text-white', segTheme: 'seg-theme-red' },
-      { id: 'blue',   barBg: 'bg-blue-600',    barText: 'text-white', segTheme: 'seg-theme-cyan' },
-      { id: 'green',  barBg: 'bg-emerald-500', barText: 'text-white', segTheme: 'seg-theme-green' },
-      { id: 'yellow', barBg: 'bg-yellow-400',  barText: 'text-black', segTheme: 'seg-theme-amber' },
-      { id: 'orange', barBg: 'bg-orange-500',  barText: 'text-white', segTheme: 'seg-theme-orange' },
-      { id: 'white',  barBg: 'bg-white',       barText: 'text-black', segTheme: 'seg-theme-white' }
+      { id: 'red',    barBg: 'bg-red-600',     barText: 'text-white', borderColor: 'border-red-600',     segTheme: 'seg-theme-red' },
+      { id: 'blue',   barBg: 'bg-blue-600',    barText: 'text-white', borderColor: 'border-blue-600',    segTheme: 'seg-theme-cyan' },
+      { id: 'green',  barBg: 'bg-emerald-500', barText: 'text-white', borderColor: 'border-emerald-500', segTheme: 'seg-theme-green' },
+      { id: 'yellow', barBg: 'bg-yellow-400',  barText: 'text-black', borderColor: 'border-yellow-400',  segTheme: 'seg-theme-amber' },
+      { id: 'orange', barBg: 'bg-orange-500',  barText: 'text-white', borderColor: 'border-orange-500',  segTheme: 'seg-theme-orange' },
+      { id: 'white',  barBg: 'bg-white',       barText: 'text-black', borderColor: 'border-white',       segTheme: 'seg-theme-white' }
     ];
 
     let sbState = {
@@ -1690,10 +1687,12 @@
       const rc = teamColors[sbState.rightColorIdx];
 
       document.getElementById('sb-left-bar').className = `w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl ${lc.barBg} ${lc.barText} flex items-center justify-center gap-2 transition shadow-lg active:scale-98`;
-      document.getElementById('score-left-digits').className = `flip-card seg-display ${lc.segTheme}`;
+      document.getElementById('score-left-digits').className = `seg-display ${lc.segTheme}`;
+      document.getElementById('set-left-card').className = `flex flex-col items-center bg-neutral-900 border-2 ${lc.borderColor} rounded-2xl p-1.5 md:p-2 w-full transition-colors`;
 
       document.getElementById('sb-right-bar').className = `w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl ${rc.barBg} ${rc.barText} flex items-center justify-center gap-2 transition shadow-lg active:scale-98`;
-      document.getElementById('score-right-digits').className = `flip-card seg-display ${rc.segTheme}`;
+      document.getElementById('score-right-digits').className = `seg-display ${rc.segTheme}`;
+      document.getElementById('set-right-card').className = `flex flex-col items-center bg-neutral-900 border-2 ${rc.borderColor} rounded-2xl p-1.5 md:p-2 w-full transition-colors`;
     }
 
     function cycleTeamColor(side) {
@@ -1706,17 +1705,11 @@
     }
 
     function changeScore(side, delta) {
-      const el = document.getElementById(`score-${side}-digits`);
       if (side === 'left') {
         sbState.leftScore = Math.max(0, Math.min(999, sbState.leftScore + delta));
       } else {
         sbState.rightScore = Math.max(0, Math.min(999, sbState.rightScore + delta));
       }
-
-      // めくり上がりアニメーション発火
-      el.classList.remove('animate-flip-up', 'animate-flip-down');
-      void el.offsetWidth; // リフロー強制
-      el.classList.add(delta > 0 ? 'animate-flip-up' : 'animate-flip-down');
 
       // 得点時のサーブ権自動移動オプション
       if (delta > 0 && document.getElementById('sb-auto-serve').checked) {
