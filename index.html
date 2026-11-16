@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>体育館用 デジタルタイマー＆得点板</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: デジタル数字用のOrbitronと日本語用のNoto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+
+    input, select {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    body {
+      background-color: #050505;
+      color: #ffffff;
+      font-family: 'Noto Sans JP', sans-serif;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* 陸上記録会風 7セグメント風デジタルフォントと発光エフェクト */
+    .digital-font {
+      font-family: 'Orbitron', monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+    }
+
+    /* 7セグメントSVG表示用コンテナ（縦:横 = 2:1 厳密固定） */
+    .seg-display {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.11em;
+    }
+
+    .seg-digit {
+      width: 0.5em;   /* 横1 */
+      height: 1.0em;  /* 縦2 （縦:横 = 2:1） */
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .seg-colon {
+      width: 0.13em;
+      height: 1.0em;
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .seg-dot {
+      width: 0.10em;
+      height: 1.0em;
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    /* 点灯・消灯セグメントのスタイル */
+    .seg-off {
+      fill: rgba(255, 255, 255, 0.06);
+    }
+
+    .seg-theme-red .seg-on {
+      fill: #ff2a2a;
+      filter: drop-shadow(0 0 8px rgba(255, 42, 42, 0.75));
+    }
+
+    .seg-theme-amber .seg-on {
+      fill: #ffaa00;
+      filter: drop-shadow(0 0 8px rgba(255, 170, 0, 0.75));
+    }
+
+    .seg-theme-orange .seg-on {
+      fill: #ff6b00;
+      filter: drop-shadow(0 0 8px rgba(255, 107, 0, 0.75));
+    }
+
+    .seg-theme-green .seg-on {
+      fill: #00ff66;
+      filter: drop-shadow(0 0 8px rgba(0, 255, 102, 0.75));
+    }
+
+    .seg-theme-cyan .seg-on {
+      fill: #00e5ff;
+      filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.75));
+    }
+
+    .seg-theme-white .seg-on {
+      fill: #ffffff;
+      filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.7));
+    }
+
+    .glow-red {
+      color: #ff2a2a;
+      text-shadow: 0 0 15px rgba(255, 42, 42, 0.6), 0 0 35px rgba(255, 42, 42, 0.3);
+    }
+
+    .glow-amber {
+      color: #ffaa00;
+      text-shadow: 0 0 15px rgba(255, 170, 0, 0.6), 0 0 35px rgba(255, 170, 0, 0.3);
+    }
+
+    .glow-green {
+      color: #00ff66;
+      text-shadow: 0 0 15px rgba(0, 255, 102, 0.6), 0 0 35px rgba(0, 255, 102, 0.3);
+    }
+
+    .glow-cyan {
+      color: #00e5ff;
+      text-shadow: 0 0 15px rgba(0, 229, 255, 0.6), 0 0 35px rgba(0, 229, 255, 0.3);
+    }
+
+    .glow-white {
+      color: #ffffff;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+
+    /* 得点板めくりアニメーション */
+    .flip-card {
+      perspective: 1000px;
+      position: relative;
+      transition: transform 0.15s ease-out;
+    }
+
+    @keyframes flipUpAnim {
+      0% {
+        transform: rotateX(0deg) scale(1);
+        filter: brightness(1);
+      }
+      45% {
+        transform: rotateX(75deg) scale(0.95);
+        filter: brightness(1.4);
+      }
+      55% {
+        transform: rotateX(-75deg) scale(0.95);
+        filter: brightness(1.4);
+      }
+      100% {
+        transform: rotateX(0deg) scale(1);
+        filter: brightness(1);
+      }
+    }
+
+    @keyframes flipDownAnim {
+      0% {
+        transform: rotateX(0deg) scale(1);
+      }
+      45% {
+        transform: rotateX(-75deg) scale(0.95);
+      }
+      55% {
+        transform: rotateX(75deg) scale(0.95);
+      }
+      100% {
+        transform: rotateX(0deg) scale(1);
+      }
+    }
+
+    .animate-flip-up {
+      animation: flipUpAnim 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .animate-flip-down {
+      animation: flipDownAnim 0.32s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* 全画面表示時の自動非表示コントロールバー */
+    .hud-overlay {
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .hud-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+    }
+
+    .hud-top-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-12px);
+    }
+
+    /* カスタムスクロールバー（設定画面用） */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #111827;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #374151;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4b5563;
+    }
+
+    /* フリック入力パネル用スタイル */
+    .flick-key {
+      transition: transform 0.08s ease, background-color 0.1s ease;
+      touch-action: none;
+    }
+    .flick-key:active {
+      transform: scale(0.94);
+      background-color: #d1d5db;
+    }
+  </style>
+</head>
+<body class="bg-black text-white flex flex-col justify-between">
+
+  <!-- ==================== 1. 設定画面 (SETUP VIEW) ==================== -->
+  <div id="setup-view" class="w-full h-full overflow-y-auto bg-neutral-950 p-4 md:p-6 flex flex-col">
+    <div class="max-w-6xl w-full mx-auto flex-1 flex flex-col justify-between gap-4">
+      
+      <!-- ヘッダー -->
+      <header class="flex flex-wrap items-center justify-between border-b border-neutral-800 pb-3 gap-2">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-xl font-bold shadow-lg shadow-red-600/30">
+            <i class="fa-solid fa-stopwatch"></i>
+          </div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-black tracking-wide text-white">TIMER &amp; SCOREBOARD</h1>
+            <p class="text-xs text-neutral-400">体育授業用大型デジタルタイマー＆得点板</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center bg-neutral-900 border border-neutral-700 rounded-xl p-1">
+            <button type="button" id="buzzer-type-1" onclick="selectBuzzerType(1)" class="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs md:text-sm font-black transition">
+              ブザー① (低音)
+            </button>
+            <button type="button" id="buzzer-type-2" onclick="selectBuzzerType(2)" class="px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white text-xs md:text-sm font-black transition">
+              ブザー② (高音)
+            </button>
+          </div>
+          <button onclick="testBuzzer()" class="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-amber-400 text-sm font-bold flex items-center gap-2 transition">
+            <i class="fa-solid fa-volume-high"></i> 音テスト
+          </button>
+        </div>
+      </header>
+
+      <!-- モード選択タブ -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <button onclick="selectMode('shuttle')" id="tab-shuttle" class="mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 border-emerald-500 bg-emerald-950/40 text-left transition flex flex-col justify-between active:scale-95">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-emerald-400 text-2xl"><i class="fa-solid fa-person-running"></i></span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">新体力テスト</span>
+          </div>
+          <div class="font-bold text-lg md:text-xl">20mシャトルラン</div>
+          <div class="text-xs md:text-sm text-neutral-400">音階音源＋折り返し回数</div>
+        </button>
+
+        <button onclick="selectMode('timer')" id="tab-timer" class="mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 text-left transition flex flex-col justify-between active:scale-95">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-amber-400 text-2xl"><i class="fa-solid fa-hourglass-half"></i></span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 font-bold">競技・自由設定</span>
+          </div>
+          <div class="font-bold text-lg md:text-xl">タイマー（試合）</div>
+          <div class="text-xs md:text-sm text-neutral-400">バスケ・サッカー・前後半</div>
+        </button>
+
+        <button onclick="selectMode('stopwatch')" id="tab-stopwatch" class="mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 text-left transition flex flex-col justify-between active:scale-95">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-cyan-400 text-2xl"><i class="fa-solid fa-stopwatch-20"></i></span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 font-bold">陸上・計測</span>
+          </div>
+          <div class="font-bold text-lg md:text-xl">ストップウォッチ</div>
+          <div class="text-xs md:text-sm text-neutral-400">1/10秒計測・ラップ表示</div>
+        </button>
+
+        <button onclick="selectMode('scoreboard')" id="tab-scoreboard" class="mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 text-left transition flex flex-col justify-between active:scale-95">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-red-500 text-2xl"><i class="fa-solid fa-table-columns"></i></span>
+            <span class="text-xs px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 font-bold">球技・試合</span>
+          </div>
+          <div class="font-bold text-lg md:text-xl">得点板モード</div>
+          <div class="text-xs md:text-sm text-neutral-400">3桁得点・セット・サーブ権</div>
+        </button>
+      </div>
+
+      <!-- モード別 詳細設定パネル -->
+      <main class="flex-1 bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5 md:p-6 flex flex-col justify-center">
+        
+        <!-- 1. シャトルラン設定 -->
+        <div id="panel-shuttle" class="mode-panel space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
+            <div>
+              <h2 class="text-xl md:text-2xl font-bold text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-volume-up"></i> 20mシャトルラン（往復持久走）設定
+              </h2>
+              <p class="text-sm md:text-base text-neutral-300 mt-1">
+                文部科学省「新体力テスト」実施要項準拠の速度プログラムと音階（ドレミファソラシド♪）を自動再生します。
+              </p>
+            </div>
+            <div class="bg-neutral-950 px-5 py-3.5 rounded-2xl border border-neutral-800 text-right">
+              <div class="text-xs text-neutral-400">最大回数 / 初期速度</div>
+              <div class="font-bold text-base md:text-lg text-emerald-400">247回 / 8.5 km/h (約8.47秒)</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800">
+              <label class="block text-sm text-neutral-300 font-bold mb-3">開始前カウントダウン</label>
+              <select id="shuttle-countdown" class="w-full min-h-[54px] bg-neutral-800 text-white text-base rounded-xl px-4 py-3 font-bold border border-neutral-700">
+                <option value="5" selected>5秒前アナウンスから開始</option>
+                <option value="3">3秒前から開始</option>
+                <option value="0">すぐに1回目スタート</option>
+              </select>
+            </div>
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800">
+              <label class="block text-sm text-neutral-300 font-bold mb-3">スタート練習（途中から開始）</label>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="adjustInputNumber('shuttle-start-lap', -1, 1, 240)" class="w-14 h-14 rounded-xl bg-neutral-700 hover:bg-neutral-600 active:scale-95 text-xl font-black text-white border border-neutral-500 shadow-md flex items-center justify-center"><i class="fa-solid fa-minus"></i></button>
+                <input type="number" id="shuttle-start-lap" value="1" min="1" max="240" class="flex-1 h-14 bg-neutral-900 text-white text-xl rounded-xl font-bold border border-neutral-700 text-center">
+                <button type="button" onclick="adjustInputNumber('shuttle-start-lap', 1, 1, 240)" class="w-14 h-14 rounded-xl bg-neutral-700 hover:bg-neutral-600 active:scale-95 text-xl font-black text-white border border-neutral-500 shadow-md flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800 flex flex-col justify-center">
+              <div class="text-sm text-neutral-300 font-bold mb-2">画面表示内容</div>
+              <ul class="text-sm text-neutral-300 space-y-1.5">
+                <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i>現在の折り返し回数（特大表示）</li>
+                <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i>現在のレベル・残り時間バー</li>
+                <li><i class="fa-solid fa-check text-emerald-400 mr-1.5"></i>往路（→）・復路（←）の方向表示</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. タイマー（スポーツプリセット＆手動）設定 -->
+        <div id="panel-timer" class="mode-panel hidden space-y-5">
+          <div>
+            <label class="block text-sm text-neutral-300 font-bold mb-2.5">競技プリセットを選択（ワンタップ設定）</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              <button onclick="applySportPreset('basketball')" class="preset-btn p-4 min-h-[76px] rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-700 text-left transition">
+                <div class="font-bold text-base text-amber-400">🏀 バスケット</div>
+                <div class="text-xs text-neutral-300 mt-1">8分×4Q (休2分)</div>
+              </button>
+              <button onclick="applySportPreset('soccer')" class="preset-btn p-4 min-h-[76px] rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-700 text-left transition">
+                <div class="font-bold text-base text-emerald-400">⚽ サッカー</div>
+                <div class="text-xs text-neutral-300 mt-1">15分×前後半 (休5分)</div>
+              </button>
+              <button onclick="applySportPreset('tagrugby')" class="preset-btn p-4 min-h-[76px] rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-700 text-left transition">
+                <div class="font-bold text-base text-cyan-400">🏉 タグラグビー</div>
+                <div class="text-xs text-neutral-300 mt-1">7分×前後半 (休2分)</div>
+              </button>
+              <button onclick="applySportPreset('portball')" class="preset-btn p-4 min-h-[76px] rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-700 text-left transition">
+                <div class="font-bold text-base text-rose-400">⛹️ ポートボール</div>
+                <div class="text-xs text-neutral-300 mt-1">6分×前後半 (休2分)</div>
+              </button>
+              <button onclick="applySportPreset('custom')" class="preset-btn p-4 min-h-[76px] rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-700 text-left transition">
+                <div class="font-bold text-base text-purple-400">⚙️ 自由設定</div>
+                <div class="text-xs text-neutral-300 mt-1">単発・インターバル</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 手動時間調整フォーム（タッチしやすい大型コントロール） -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800">
+            <div>
+              <label class="block text-sm text-neutral-300 font-bold mb-2">1ピリオドの時間 (分 : 秒)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="timer-min" value="8" min="0" max="99" class="w-full h-14 bg-neutral-800 text-white text-xl rounded-xl text-center font-bold border border-neutral-700">
+                <span class="font-black text-xl">:</span>
+                <input type="text" inputmode="numeric" id="timer-sec" value="00" onblur="padZeroInput(this, 59)" class="w-full h-14 bg-neutral-800 text-white text-xl rounded-xl text-center font-bold border border-neutral-700">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 font-bold mb-2">ピリオド数 (前後半=2)</label>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="adjustInputNumber('timer-periods', -1, 1, 12)" class="w-14 h-14 rounded-xl bg-neutral-700 hover:bg-neutral-600 active:scale-95 font-black text-white border border-neutral-500 shadow-md flex items-center justify-center"><i class="fa-solid fa-minus"></i></button>
+                <input type="number" id="timer-periods" value="2" min="1" max="12" class="flex-1 h-14 bg-neutral-900 text-white text-xl rounded-xl text-center font-bold border border-neutral-700">
+                <button type="button" onclick="adjustInputNumber('timer-periods', 1, 1, 12)" class="w-14 h-14 rounded-xl bg-neutral-700 hover:bg-neutral-600 active:scale-95 font-black text-white border border-neutral-500 shadow-md flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 font-bold mb-2">インターバル休憩 (分 : 秒)</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="interval-min" value="2" min="0" max="60" class="w-full h-14 bg-neutral-800 text-white text-xl rounded-xl text-center font-bold border border-neutral-700">
+                <span class="font-black text-xl">:</span>
+                <input type="text" inputmode="numeric" id="interval-sec" value="00" onblur="padZeroInput(this, 59)" class="w-full h-14 bg-neutral-800 text-white text-xl rounded-xl text-center font-bold border border-neutral-700">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-neutral-300 font-bold mb-2 flex items-center justify-between">
+                <span>競技名ラベル</span>
+                <button type="button" onclick="openFlickKeyboard('timer-label')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
+              </label>
+              <input type="text" id="timer-label" value="バスケットボール" onfocus="openFlickKeyboard('timer-label')" class="w-full h-14 bg-neutral-800 text-white text-base rounded-xl px-4 font-bold border border-neutral-700">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-base">
+            <label class="flex items-center gap-3 p-3.5 rounded-xl bg-neutral-950 border border-neutral-800 cursor-pointer active:bg-neutral-800">
+              <input type="checkbox" id="timer-auto-interval" checked class="w-6 h-6 accent-red-500">
+              <span class="font-bold">ピリオド終了後、自動でインターバル計測へ移行</span>
+            </label>
+            <label class="flex items-center gap-3 p-3.5 rounded-xl bg-neutral-950 border border-neutral-800 cursor-pointer active:bg-neutral-800">
+              <input type="checkbox" id="timer-show-scoreboard" class="w-6 h-6 accent-amber-500">
+              <span class="text-amber-300 font-bold">得点板も同時に画面に表示する</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. ストップウォッチ設定 -->
+        <div id="panel-stopwatch" class="mode-panel hidden space-y-5">
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl md:text-2xl font-bold text-cyan-400">陸上記録会風 ストップウォッチ</h2>
+              <p class="text-sm md:text-base text-neutral-300 mt-1">
+                1時間未満は「00:00.1」（1/10秒単位）、1時間以上は「0:00:00」で画面いっぱいに大きく表示します。
+              </p>
+            </div>
+            <div class="w-full md:w-auto bg-neutral-950 p-4 rounded-2xl border border-neutral-800 space-y-3">
+              <label class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-neutral-900 cursor-pointer text-base font-bold">
+                <input type="checkbox" id="sw-show-ms" checked class="w-6 h-6 accent-cyan-500">
+                <span>1/10秒（0.1秒単位）を表示する</span>
+              </label>
+              <div class="p-2.5 rounded-xl bg-neutral-900/70 space-y-2">
+                <label class="flex items-center gap-3 cursor-pointer text-base font-bold">
+                  <input type="checkbox" id="sw-beep-interval-enable" class="w-6 h-6 accent-cyan-500">
+                  <span>一定時間ごとに合図音を鳴らす</span>
+                </label>
+                <div class="flex items-center gap-2 pl-9">
+                  <input type="number" id="sw-beep-min" value="1" min="0" max="60" class="w-16 h-11 bg-neutral-800 text-white text-lg rounded-lg text-center font-bold border border-neutral-700">
+                  <span class="text-sm font-bold">分</span>
+                  <input type="text" inputmode="numeric" id="sw-beep-sec" value="00" onblur="padZeroInput(this, 59)" class="w-16 h-11 bg-neutral-800 text-white text-lg rounded-lg text-center font-bold border border-neutral-700">
+                  <span class="text-sm font-bold">秒ごと</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 得点板設定 -->
+        <div id="panel-scoreboard" class="mode-panel hidden space-y-5">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- 左チーム設定 -->
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-neutral-300">左チーム（任意・空欄可）</span>
+                <button type="button" onclick="openFlickKeyboard('sb-left-name')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
+              </div>
+              <input type="text" id="sb-left-name" value="" placeholder="チーム名（空欄ならバーのみ）" onfocus="openFlickKeyboard('sb-left-name')" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-sm text-neutral-400 font-bold">カラー:</span>
+                <div class="flex items-center gap-2">
+                  <button onclick="setTeamColor('left', 'red')" class="w-9 h-9 rounded-full bg-red-600 border-2 border-white active:scale-90 transition" title="赤"></button>
+                  <button onclick="setTeamColor('left', 'blue')" class="w-9 h-9 rounded-full bg-blue-600 active:scale-90 transition" title="青"></button>
+                  <button onclick="setTeamColor('left', 'green')" class="w-9 h-9 rounded-full bg-emerald-500 active:scale-90 transition" title="緑"></button>
+                  <button onclick="setTeamColor('left', 'yellow')" class="w-9 h-9 rounded-full bg-yellow-400 active:scale-90 transition" title="黄"></button>
+                  <button onclick="setTeamColor('left', 'orange')" class="w-9 h-9 rounded-full bg-orange-500 active:scale-90 transition" title="オレンジ"></button>
+                  <button onclick="setTeamColor('left', 'white')" class="w-9 h-9 rounded-full bg-white active:scale-90 transition" title="白"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 中央・タイマー連携設定 -->
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800 space-y-3">
+              <div class="text-sm font-bold text-neutral-300">得点板オプション</div>
+              <select id="sb-timer-mode" class="w-full h-14 bg-neutral-800 text-white rounded-xl px-3 font-bold border border-neutral-700 text-base">
+                <option value="none" selected>タイマーを表示しない（得点板のみ）</option>
+                <option value="small-timer">上部に小さくタイマーを表示する</option>
+                <option value="small-stopwatch">上部に小さくストップウォッチを表示する</option>
+              </select>
+              <label class="flex items-center gap-3 p-2.5 rounded-xl bg-neutral-900 cursor-pointer text-sm font-bold text-neutral-200">
+                <input type="checkbox" id="sb-show-serve" class="w-6 h-6 accent-amber-500">
+                <span>サーブ権（SERVE）を表示する</span>
+              </label>
+              <label class="flex items-center gap-3 p-2.5 rounded-xl bg-neutral-900 cursor-pointer text-sm font-bold text-neutral-200">
+                <input type="checkbox" id="sb-auto-serve" class="w-6 h-6 accent-amber-500">
+                <span>得点が入ったらサーブ権を自動移動</span>
+              </label>
+            </div>
+
+            <!-- 右チーム設定 -->
+            <div class="bg-neutral-950 p-4 md:p-5 rounded-2xl border border-neutral-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-neutral-300">右チーム（任意・空欄可）</span>
+                <button type="button" onclick="openFlickKeyboard('sb-right-name')" class="text-xs px-2 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-400 font-bold"><i class="fa-solid fa-keyboard"></i> かなパネル</button>
+              </div>
+              <input type="text" id="sb-right-name" value="" placeholder="チーム名（空欄ならバーのみ）" onfocus="openFlickKeyboard('sb-right-name')" class="w-full h-14 bg-neutral-800 text-white text-lg rounded-xl px-4 font-bold border border-neutral-700">
+              <div class="flex items-center justify-between pt-1">
+                <span class="text-sm text-neutral-400 font-bold">カラー:</span>
+                <div class="flex items-center gap-2">
+                  <button onclick="setTeamColor('right', 'red')" class="w-9 h-9 rounded-full bg-red-600 active:scale-90 transition" title="赤"></button>
+                  <button onclick="setTeamColor('right', 'blue')" class="w-9 h-9 rounded-full bg-blue-600 border-2 border-white active:scale-90 transition" title="青"></button>
+                  <button onclick="setTeamColor('right', 'green')" class="w-9 h-9 rounded-full bg-emerald-500 active:scale-90 transition" title="緑"></button>
+                  <button onclick="setTeamColor('right', 'yellow')" class="w-9 h-9 rounded-full bg-yellow-400 active:scale-90 transition" title="黄"></button>
+                  <button onclick="setTeamColor('right', 'orange')" class="w-9 h-9 rounded-full bg-orange-500 active:scale-90 transition" title="オレンジ"></button>
+                  <button onclick="setTeamColor('right', 'white')" class="w-9 h-9 rounded-full bg-white active:scale-90 transition" title="白"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs md:text-sm text-neutral-400">
+            ※ 試合画面では、得点数字を<strong>「上へスワイプ」で＋1、「下へスワイプ」で−1</strong>、または画面のボタンタップで操作できます。上部カラーバーをタップするとチームの色を変更できます。
+          </p>
+        </div>
+
+      </main>
+
+      <!-- 全画面スタートボタン -->
+      <footer class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div class="text-xs md:text-sm text-neutral-400 flex items-center gap-2">
+          <i class="fa-solid fa-expand text-neutral-300"></i>
+          <span>「全画面で表示する」を押すとChromebookの画面いっぱいに表示されます</span>
+        </div>
+        <button onclick="launchFullscreenDisplay()" class="w-full sm:w-auto min-h-[64px] px-10 py-4 rounded-2xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-xl md:text-2xl shadow-xl shadow-red-600/30 flex items-center justify-center gap-3 transition transform active:scale-95">
+          <i class="fa-solid fa-play"></i>
+          <span>全画面で表示する</span>
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 全画面ディスプレイ (FULLSCREEN DISPLAY VIEW) ==================== -->
+  <div id="display-view" class="hidden w-full h-full bg-black relative flex flex-col justify-between overflow-hidden" onmousemove="showHudTemporarily()" ontouchstart="showHudTemporarily()">
+
+    <!-- 上部ステータス＆ミニタイマーバー -->
+    <div id="top-bar" class="w-full px-6 pt-4 pb-2 flex items-center justify-between z-20">
+      <div class="flex items-center gap-3">
+        <span id="display-badge" class="px-3 py-1 rounded-lg bg-neutral-900 border border-neutral-700 text-xs md:text-sm font-bold tracking-wider text-neutral-300">
+          TIMER MODE
+        </span>
+        <span id="display-sub-info" class="text-sm md:text-lg font-bold text-amber-400"></span>
+      </div>
+
+      <!-- 得点板モード時の「小型タイマー」表示枠 -->
+      <div id="mini-timer-box" class="hidden items-center gap-3 bg-neutral-900/90 border border-neutral-700 px-4 py-1.5 rounded-xl">
+        <span id="mini-timer-period" class="text-xs font-bold text-amber-400">1ST</span>
+        <div id="mini-timer-text" class="seg-display seg-theme-amber" style="font-size: clamp(1.8rem, 3.2vw, 2.8rem);"></div>
+      </div>
+
+      <!-- 右上：設定へ戻るボタン（HUD連動） -->
+      <div id="hud-top-right" class="hud-overlay flex items-center gap-2">
+        <button onclick="toggleBrowserFullscreen()" class="p-3 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm font-bold" title="全画面切替">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+        <button onclick="returnToSetup()" class="px-4 py-2.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700 text-white text-sm font-bold flex items-center gap-2">
+          <i class="fa-solid fa-gear"></i> 設定に戻る
+        </button>
+      </div>
+    </div>
+
+    <!-- 中央メイン表示エリア -->
+    <div id="main-stage" class="flex-1 min-h-0 w-full flex flex-col items-center justify-center px-3 md:px-6 relative overflow-hidden">
+      
+      <!-- A. 通常タイマー / ストップウォッチ 特大表示 -->
+      <div id="stage-clock" class="w-full h-full flex flex-col items-center justify-center">
+        <div id="clock-status-banner" class="text-2xl md:text-5xl font-black tracking-widest text-amber-400 mb-10 md:mb-16 min-h-[2.5rem]">
+          <!-- 前半 / 後半 / インターバル など -->
+        </div>
+        <div id="main-clock-digits" class="seg-display seg-theme-amber select-none" style="font-size: min(35vw, 52vh);">
+          <!-- JSで7セグメントSVGを生成 -->
+        </div>
+        <!-- ラップタイム表示（ストップウォッチ時） -->
+        <div id="stopwatch-lap-display" class="hidden mt-3 md:mt-4 flex flex-wrap justify-center items-center gap-3 text-base md:text-2xl font-bold text-cyan-300 digital-font">
+          <span>LAP 1: 00:00.0</span>
+        </div>
+      </div>
+
+      <!-- B. 20mシャトルラン 特大表示 -->
+      <div id="stage-shuttle" class="hidden w-full h-full flex flex-col items-center justify-between py-1 md:py-2">
+        <div class="w-full max-w-6xl flex items-center justify-between px-2 md:px-4">
+          <div class="bg-neutral-900/90 border border-neutral-800 px-4 py-1.5 md:px-6 md:py-2 rounded-2xl">
+            <span class="text-xs text-neutral-400 block">LEVEL</span>
+            <span id="shuttle-level" class="digital-font text-2xl md:text-4xl font-black text-emerald-400">1</span>
+          </div>
+          <div class="bg-neutral-900/90 border border-neutral-800 px-4 py-1.5 md:px-6 md:py-2 rounded-2xl text-right">
+            <span class="text-xs text-neutral-400 block">SPEED</span>
+            <span id="shuttle-speed" class="digital-font text-2xl md:text-4xl font-black text-cyan-400">8.5 <span class="text-xs md:text-sm">km/h</span></span>
+          </div>
+        </div>
+
+        <!-- スタート前カウントダウン画面全体表示 -->
+        <div id="shuttle-countdown-overlay" class="hidden flex-1 w-full flex flex-col items-center justify-center my-auto px-4 text-center">
+          <div class="text-2xl md:text-5xl font-black tracking-widest text-amber-400 mb-3 md:mb-6">スタートまであと</div>
+          <div class="flex items-baseline justify-center gap-3 md:gap-6">
+            <div id="shuttle-countdown-digits" class="seg-display seg-theme-amber" style="font-size: min(44vw, 54vh);"></div>
+            <span class="text-4xl md:text-7xl font-black text-amber-400">秒</span>
+          </div>
+        </div>
+
+        <!-- 現在の回数（超特大 7セグメント・スタート後に表示） -->
+        <div id="shuttle-lap-wrapper" class="flex-1 w-full flex flex-col items-center justify-center my-auto min-h-0">
+          <div class="flex items-baseline justify-center gap-3 md:gap-5">
+            <div id="shuttle-lap-count" class="seg-display seg-theme-green" style="font-size: min(44vw, 58vh);"></div>
+            <span class="text-3xl md:text-6xl font-black text-emerald-500">回</span>
+          </div>
+        </div>
+
+        <!-- 音階プログレスバー -->
+        <div class="w-full max-w-6xl px-2 md:px-4 space-y-1">
+          <div class="flex justify-between text-xs md:text-sm font-bold text-neutral-400">
+            <span>スタート</span>
+            <span id="shuttle-note-indicator" class="text-emerald-400">♪ ド・レ・ミ・ファ・ソ・ラ・シ・ド</span>
+            <span>折り返しライン到達</span>
+          </div>
+          <div class="w-full h-5 md:h-7 bg-neutral-900 rounded-full overflow-hidden border border-neutral-700 p-1">
+            <div id="shuttle-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 via-lime-400 to-amber-400 rounded-full transition-all duration-75" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C. 得点板表示 (SCOREBOARD) -->
+      <div id="stage-scoreboard" class="hidden w-full h-full flex-1 min-h-0 grid grid-cols-11 gap-2 md:gap-4 items-center py-1 md:py-2">
+        
+        <!-- 左チーム (5カラム) -->
+        <div class="col-span-5 h-full min-h-0 flex flex-col items-center justify-between bg-neutral-950/90 border border-neutral-800/80 rounded-3xl p-2.5 md:p-4 relative overflow-hidden">
+          <!-- チームカラーバー（全体塗りつぶし・文字入力時は白抜き/黄は黒文字） -->
+          <button id="sb-left-bar" onclick="cycleTeamColor('left')" class="w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl bg-red-600 text-white flex items-center justify-center gap-2 transition shadow-lg active:scale-98">
+            <span id="sb-left-title" class="text-xl md:text-3xl font-black tracking-wider truncate"></span>
+          </button>
+
+          <!-- サーブ権インジケーター（左） -->
+          <button onclick="setServe('left')" id="serve-left-btn" class="mt-1.5 px-4 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs md:text-sm font-black flex items-center gap-2 transition">
+            <i class="fa-solid fa-volleyball"></i> SERVE
+          </button>
+
+          <!-- 3桁特大スコア（スワイプ対応 7セグメント） -->
+          <div id="score-left-touch" class="flex-1 min-h-0 w-full flex items-center justify-center cursor-pointer relative my-1">
+            <div id="score-left-digits" class="flip-card seg-display seg-theme-red" style="font-size: min(22vw, 44vh);">
+            </div>
+          </div>
+
+          <!-- タップ加減算ボタン -->
+          <div class="w-full grid grid-cols-2 gap-2 md:gap-3">
+            <button onclick="changeScore('left', -1)" class="py-2.5 md:py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 active:scale-95 border border-neutral-700 text-lg md:text-2xl font-black text-neutral-300 transition">
+              <i class="fa-solid fa-minus"></i> 1
+            </button>
+            <button onclick="changeScore('left', 1)" class="py-2.5 md:py-3.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-600 text-lg md:text-2xl font-black text-white transition">
+              <i class="fa-solid fa-plus"></i> 1
+            </button>
+          </div>
+        </div>
+
+        <!-- 中央セット数＆コントロール (1カラム) -->
+        <div class="col-span-1 h-full flex flex-col items-center justify-center gap-2 md:gap-3">
+          <div class="text-[10px] md:text-xs font-bold text-neutral-400 tracking-widest">SET</div>
+          
+          <!-- セット数表示カード -->
+          <div class="flex flex-col items-center bg-neutral-900 border border-neutral-700 rounded-2xl p-1.5 md:p-2 w-full">
+            <button onclick="changeSet('left', 1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-up"></i></button>
+            <div id="set-left-val" class="seg-display seg-theme-amber my-0.5" style="font-size: min(4.5vw, 8vh);"></div>
+            <button onclick="changeSet('left', -1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-down"></i></button>
+          </div>
+
+          <button onclick="swapSides()" class="p-2 md:p-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white text-xs" title="コートチェンジ（左右入替）">
+            <i class="fa-solid fa-right-left"></i>
+          </button>
+
+          <div class="flex flex-col items-center bg-neutral-900 border border-neutral-700 rounded-2xl p-1.5 md:p-2 w-full">
+            <button onclick="changeSet('right', 1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-up"></i></button>
+            <div id="set-right-val" class="seg-display seg-theme-amber my-0.5" style="font-size: min(4.5vw, 8vh);"></div>
+            <button onclick="changeSet('right', -1)" class="text-neutral-400 hover:text-white p-1"><i class="fa-solid fa-caret-down"></i></button>
+          </div>
+        </div>
+
+        <!-- 右チーム (5カラム) -->
+        <div class="col-span-5 h-full min-h-0 flex flex-col items-center justify-between bg-neutral-950/90 border border-neutral-800/80 rounded-3xl p-2.5 md:p-4 relative overflow-hidden">
+          <!-- チームカラーバー（全体塗りつぶし・文字入力時は白抜き/黄は黒文字） -->
+          <button id="sb-right-bar" onclick="cycleTeamColor('right')" class="w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl bg-blue-600 text-white flex items-center justify-center gap-2 transition shadow-lg active:scale-98">
+            <span id="sb-right-title" class="text-xl md:text-3xl font-black tracking-wider truncate"></span>
+          </button>
+
+          <!-- サーブ権インジケーター（右） -->
+          <button onclick="setServe('right')" id="serve-right-btn" class="mt-1.5 px-4 py-1 rounded-full bg-neutral-900 border border-neutral-700 text-neutral-500 text-xs md:text-sm font-black flex items-center gap-2 transition">
+            <i class="fa-solid fa-volleyball"></i> SERVE
+          </button>
+
+          <!-- 3桁特大スコア（スワイプ対応 7セグメント） -->
+          <div id="score-right-touch" class="flex-1 min-h-0 w-full flex items-center justify-center cursor-pointer relative my-1">
+            <div id="score-right-digits" class="flip-card seg-display seg-theme-cyan" style="font-size: min(22vw, 44vh);">
+            </div>
+          </div>
+
+          <!-- タップ加減算ボタン -->
+          <div class="w-full grid grid-cols-2 gap-2 md:gap-3">
+            <button onclick="changeScore('right', -1)" class="py-2.5 md:py-3.5 rounded-2xl bg-neutral-900 hover:bg-neutral-800 active:scale-95 border border-neutral-700 text-lg md:text-2xl font-black text-neutral-300 transition">
+              <i class="fa-solid fa-minus"></i> 1
+            </button>
+            <button onclick="changeScore('right', 1)" class="py-2.5 md:py-3.5 rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-neutral-600 text-lg md:text-2xl font-black text-white transition">
+              <i class="fa-solid fa-plus"></i> 1
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 下部コントロールバー（全モードで常時表示） -->
+    <div id="hud-bottom" class="w-full px-6 pb-4 pt-2 flex flex-wrap items-center justify-center gap-3 z-20">
+      <button id="btn-start-pause" onclick="toggleStartPause()" class="px-8 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg md:text-xl shadow-lg flex items-center gap-3 transition transform active:scale-95">
+        <i class="fa-solid fa-play"></i> <span>スタート</span>
+      </button>
+
+      <button id="btn-lap" onclick="recordLap()" class="hidden px-6 py-4 rounded-2xl bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-base md:text-lg flex items-center gap-2 transition">
+        <i class="fa-solid fa-flag"></i> ラップ
+      </button>
+
+      <button id="btn-next-period" onclick="nextPeriodManual()" class="hidden px-6 py-4 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-base md:text-lg flex items-center gap-2 transition">
+        <i class="fa-solid fa-forward-step"></i> 次のピリオドへ
+      </button>
+
+      <button onclick="resetCurrentMode()" class="px-6 py-4 rounded-2xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-200 font-bold text-base md:text-lg flex items-center gap-2 transition">
+        <i class="fa-solid fa-rotate-left"></i> リセット
+      </button>
+
+      <button id="hud-buzzer-btn" onclick="playManualBuzzer()" class="px-6 py-4 rounded-2xl bg-red-900/80 hover:bg-red-800 border border-red-600 text-red-200 font-bold text-base md:text-lg flex items-center gap-2 transition" title="ブザーを鳴らす">
+        <i class="fa-solid fa-bell"></i> <span>ブザー</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- カスタムメッセージモーダル（alert()代替） -->
+  <div id="toast-message" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl bg-neutral-800 border border-amber-500/60 text-white font-bold shadow-2xl transition-all duration-300 opacity-0 pointer-events-none">
+    メッセージ
+  </div>
+
+  <!-- ==================== 移動可能な「かなフリック入力パネル」 ==================== -->
+  <div id="flick-keyboard-panel" class="hidden fixed bottom-4 right-4 z-50 w-[330px] sm:w-[360px] bg-neutral-200/95 backdrop-blur-md text-neutral-900 rounded-3xl shadow-2xl border border-neutral-400 select-none overflow-hidden">
+    <!-- ドラッグ移動用ヘッダーバー -->
+    <div id="flick-drag-handle" class="bg-neutral-300 px-3 py-2 flex items-center justify-between cursor-move border-b border-neutral-400 gap-1">
+      <div class="flex items-center gap-1.5 text-xs font-black text-neutral-700">
+        <i class="fa-solid fa-grip-lines"></i>
+        <span>かな入力</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="flick-kana-toggle-btn" onclick="toggleFlickKanaMode()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-sm transition">
+          カタカナ
+        </button>
+        <button type="button" onclick="flickBackspace()" class="px-2.5 py-1 rounded-lg bg-neutral-400/70 hover:bg-neutral-400 text-neutral-900 font-bold text-sm" title="1文字削除">
+          <i class="fa-solid fa-delete-left"></i>
+        </button>
+        <button type="button" onclick="closeFlickKeyboard()" class="px-2.5 py-1 rounded-lg bg-neutral-700 hover:bg-neutral-800 text-white font-bold text-sm" title="閉じる">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- フリックガイド表示 -->
+    <div id="flick-guide-bar" class="h-7 bg-neutral-100 px-3 flex items-center justify-center gap-3 text-xs font-bold text-neutral-600 border-b border-neutral-300">
+      <span>タップまたは上下左右へフリックして入力</span>
+    </div>
+
+    <!-- 12キー テンキーフリックグリッド（添付画像準拠レイアウト） -->
+    <div id="flick-grid" class="p-2.5 grid grid-cols-3 gap-2">
+      <!-- JSで12キーを生成 -->
+    </div>
+  </div>
+
+  <script>
+    // ==================== 7セグメントLED 描画エンジン（縦:横 = 2:1・極太仕様） ====================
+    // 各数字の点灯パターン [a(上), b(右上), c(右下), d(下), e(左下), f(左上), g(中央)]
+    const SEVEN_SEG_MAP = {
+      '0': [1, 1, 1, 1, 1, 1, 0],
+      '1': [0, 1, 1, 0, 0, 0, 0],
+      '2': [1, 1, 0, 1, 1, 0, 1],
+      '3': [1, 1, 1, 1, 0, 0, 1],
+      '4': [0, 1, 1, 0, 0, 1, 1],
+      '5': [1, 0, 1, 1, 0, 1, 1],
+      '6': [1, 0, 1, 1, 1, 1, 1],
+      '7': [1, 1, 1, 0, 0, 0, 0],
+      '8': [1, 1, 1, 1, 1, 1, 1],
+      '9': [1, 1, 1, 1, 0, 1, 1],
+      ' ': [0, 0, 0, 0, 0, 0, 0],
+      '-': [0, 0, 0, 0, 0, 0, 1]
+    };
+
+    // viewBox="0 0 100 200" （横100 : 縦200 ＝ 厳密に 1:2）の極太7本セグメント座標
+    const SEG_POLYGONS = [
+      '15,5 85,5 71,27 29,27',               // a: 上横棒（極太）
+      '89,9 97,18 97,91 88,98 75,86 75,29',  // b: 右上縦棒（極太）
+      '88,102 97,109 97,182 89,191 75,171 75,114', // c: 右下縦棒（極太）
+      '15,195 85,195 71,173 29,173',         // d: 下横棒（極太）
+      '12,102 25,114 25,171 11,191 3,182 3,109', // e: 左下縦棒（極太）
+      '11,9 25,29 25,86 12,98 3,91 3,18',    // f: 左上縦棒（極太）
+      '16,100 28,89 72,89 84,100 72,111 28,111' // g: 中央横棒（極太）
+    ];
+
+    /**
+     * 指定された文字列（例: "08:00", "012", "00:00.1", "1:00:00"）を7セグメントSVG群として描画する
+     * すべての数字が固定幅(0.5em)のため、数字が変わっても「：」や桁の位置は一切ズレない
+     */
+    function renderSevenSegment(containerEl, textStr) {
+      if (!containerEl) return;
+      // 前回と同じ文字列なら再描画をスキップして高速化
+      if (containerEl.dataset.lastStr === textStr) return;
+      containerEl.dataset.lastStr = textStr;
+
+      let html = '';
+      for (let i = 0; i < textStr.length; i++) {
+        const ch = textStr[i];
+        if (ch === ':') {
+          html += `
+            <svg class="seg-colon" viewBox="0 0 26 200" aria-hidden="true">
+              <circle cx="13" cy="65" r="9" class="seg-on" />
+              <circle cx="13" cy="135" r="9" class="seg-on" />
+            </svg>`;
+        } else if (ch === '.') {
+          html += `
+            <svg class="seg-dot" viewBox="0 0 20 200" aria-hidden="true">
+              <circle cx="10" cy="184" r="9" class="seg-on" />
+            </svg>`;
+        } else {
+          const states = SEVEN_SEG_MAP[ch] || SEVEN_SEG_MAP[' '];
+          let polys = '';
+          for (let s = 0; s < 7; s++) {
+            const cls = states[s] ? 'seg-on' : 'seg-off';
+            polys += `<polygon points="${SEG_POLYGONS[s]}" class="${cls}" />`;
+          }
+          html += `<svg class="seg-digit" viewBox="0 0 100 200" aria-hidden="true">${polys}</svg>`;
+        }
+      }
+      containerEl.innerHTML = html;
+    }
+
+    // ==================== アプリ状態管理 ====================
+    let currentMode = 'shuttle'; // 'shuttle' | 'timer' | 'stopwatch' | 'scoreboard'
+    let isRunning = false;
+    let animationFrameId = null;
+    let lastTimestamp = 0;
+
+    // HUD自動非表示タイマー
+    let hudTimeout = null;
+
+    // タイマー状態
+    let timerConfig = {
+      periodSeconds: 480,
+      totalPeriods: 2,
+      intervalSeconds: 120,
+      label: 'バスケットボール',
+      autoInterval: true,
+      showScoreboard: false
+    };
+    let timerState = {
+      remainingMs: 480000,
+      currentPeriod: 1,
+      isInterval: false
+    };
+
+    // ストップウォッチ状態
+    let swState = {
+      elapsedMs: 0,
+      laps: [],
+      lastBeepCount: 0
+    };
+
+    // シャトルラン状態（文科省20mシャトルラン標準テーブル）
+    // レベルごとの速度(km/h)と、そのレベルの累積折り返し回数上限
+    const shuttleLevels = [
+      { level: 1,  speed: 8.5,  cumLaps: 7 },
+      { level: 2,  speed: 9.0,  cumLaps: 15 },
+      { level: 3,  speed: 9.5,  cumLaps: 23 },
+      { level: 4,  speed: 10.0, cumLaps: 32 },
+      { level: 5,  speed: 10.5, cumLaps: 41 },
+      { level: 6,  speed: 11.0, cumLaps: 51 },
+      { level: 7,  speed: 11.5, cumLaps: 61 },
+      { level: 8,  speed: 12.0, cumLaps: 72 },
+      { level: 9,  speed: 12.5, cumLaps: 83 },
+      { level: 10, speed: 13.0, cumLaps: 94 },
+      { level: 11, speed: 13.5, cumLaps: 106 },
+      { level: 12, speed: 14.0, cumLaps: 118 },
+      { level: 13, speed: 14.5, cumLaps: 131 },
+      { level: 14, speed: 15.0, cumLaps: 144 },
+      { level: 15, speed: 15.5, cumLaps: 157 },
+      { level: 16, speed: 16.0, cumLaps: 171 },
+      { level: 17, speed: 16.5, cumLaps: 185 },
+      { level: 18, speed: 17.0, cumLaps: 200 },
+      { level: 19, speed: 17.5, cumLaps: 215 },
+      { level: 20, speed: 18.0, cumLaps: 231 },
+      { level: 21, speed: 18.5, cumLaps: 247 }
+    ];
+
+    let shuttleState = {
+      lap: 1,
+      countdownRemaining: 5,
+      isCountingDown: false,
+      lapElapsedMs: 0,
+      lapDurationMs: 8470,
+      lastNoteIndex: -1,
+      lastCdSecSpoken: 6
+    };
+
+    // 得点板状態（カラーバー塗りつぶし＋文字白抜き/黄色は黒文字・オレンジ追加）
+    const teamColors = [
+      { id: 'red',    barBg: 'bg-red-600',     barText: 'text-white', segTheme: 'seg-theme-red' },
+      { id: 'blue',   barBg: 'bg-blue-600',    barText: 'text-white', segTheme: 'seg-theme-cyan' },
+      { id: 'green',  barBg: 'bg-emerald-500', barText: 'text-white', segTheme: 'seg-theme-green' },
+      { id: 'yellow', barBg: 'bg-yellow-400',  barText: 'text-black', segTheme: 'seg-theme-amber' },
+      { id: 'orange', barBg: 'bg-orange-500',  barText: 'text-white', segTheme: 'seg-theme-orange' },
+      { id: 'white',  barBg: 'bg-white',       barText: 'text-black', segTheme: 'seg-theme-white' }
+    ];
+
+    let sbState = {
+      leftScore: 0,
+      rightScore: 0,
+      leftSet: 0,
+      rightSet: 0,
+      leftColorIdx: 0,
+      rightColorIdx: 1,
+      serve: 'left', // 'left' | 'right'
+      showServe: false,
+      timerSubMode: 'none' // 'none' | 'small-timer' | 'small-stopwatch'
+    };
+
+    // ==================== Web Audio API (音源生成) ====================
+    let audioCtx = null;
+    let selectedBuzzerType = 1; // 1: 低音ブザー（コートA用）, 2: 高音電子ホーン（コートB用）
+
+    function selectBuzzerType(type) {
+      selectedBuzzerType = type;
+      const b1Header = document.getElementById('buzzer-type-1');
+      const b2Header = document.getElementById('buzzer-type-2');
+      const b1Timer = document.getElementById('timer-buzzer-1');
+      const b2Timer = document.getElementById('timer-buzzer-2');
+      const hudBtn = document.getElementById('hud-buzzer-btn');
+
+      if (type === 1) {
+        if (b1Header) b1Header.className = 'px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs md:text-sm font-black transition';
+        if (b2Header) b2Header.className = 'px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white text-xs md:text-sm font-black transition';
+        if (b1Timer) b1Timer.className = 'px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-black transition';
+        if (b2Timer) b2Timer.className = 'px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 text-sm font-black transition';
+      } else {
+        if (b2Header) b2Header.className = 'px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-xs md:text-sm font-black transition';
+        if (b1Header) b1Header.className = 'px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white text-xs md:text-sm font-black transition';
+        if (b2Timer) b2Timer.className = 'px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-sm font-black transition';
+        if (b1Timer) b1Timer.className = 'px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 text-sm font-black transition';
+      }
+      if (hudBtn) hudBtn.innerHTML = '<i class="fa-solid fa-bell"></i> <span>ブザー</span>';
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 単音ビープ生成
+    function playTone(freq, duration = 0.25, type = 'sine', volume = 0.5) {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // 体育館用電子ブザー（2コート区別対応：①重厚な低音ブザー / ②高音電子ホーン）
+    function playManualBuzzer() {
+      initAudio();
+      const duration = 1.1;
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if (selectedBuzzerType === 1) {
+        // ブザー①：重厚な低音ブザー（145Hz + 152Hz）
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(145, audioCtx.currentTime);
+        osc2.frequency.setValueAtTime(152, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.45, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.45, audioCtx.currentTime + duration - 0.1);
+      } else {
+        // ブザー②：2コート目と明確に区別できる高音電子ホーン（660Hz + 880Hz）
+        osc1.type = 'triangle';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(660, audioCtx.currentTime);
+        osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.42, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.42, audioCtx.currentTime + duration - 0.1);
+      }
+
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc1.start();
+      osc2.start();
+      osc1.stop(audioCtx.currentTime + duration);
+      osc2.stop(audioCtx.currentTime + duration);
+    }
+
+    function testBuzzer() {
+      playManualBuzzer();
+      const label = selectedBuzzerType === 1 ? 'ブザー①（低音）' : 'ブザー②（高音）';
+      showToast(`${label}を再生しました`);
+    }
+
+    // シャトルラン用 9音音階（ド・レ・ミ・ファ・ソ・ラ・シ・ド ＋ 折り返しピッ！）
+    // 行き(奇数回): 上昇音階 / 帰り(偶数回): 下降音階
+    const scaleUpFreqs   = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+    const scaleDownFreqs = [523.25, 493.88, 440.00, 392.00, 349.23, 329.63, 293.66, 261.63];
+
+    function playShuttleNote(noteIdx, isGoingOut) {
+      const freqs = isGoingOut ? scaleUpFreqs : scaleDownFreqs;
+      const freq = freqs[noteIdx] || 523.25;
+      playTone(freq, 0.22, 'triangle', 0.55);
+    }
+
+    function playShuttleTurnBeep(isLevelUp) {
+      if (isLevelUp) {
+        // レベルアップ時は「チャララン♪」（ド・ミ・ソ・高いドの軽快なアルペジオ）
+        initAudio();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const startTime = audioCtx.currentTime + idx * 0.075;
+          const dur = idx === notes.length - 1 ? 0.35 : 0.14;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(0.55, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + dur);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + dur);
+        });
+      } else {
+        // 通常の折り返し合図音（ピッ！）
+        playTone(880.00, 0.30, 'sine', 0.65);
+      }
+    }
+
+    // ==================== 設定画面ロジック ====================
+    function selectMode(mode) {
+      currentMode = mode;
+      // タブの見た目更新
+      document.querySelectorAll('.mode-tab').forEach(btn => {
+        btn.className = 'mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 text-left transition flex flex-col justify-between active:scale-95';
+      });
+      const activeTab = document.getElementById(`tab-${mode}`);
+      const colorMap = {
+        shuttle: 'border-emerald-500 bg-emerald-950/40',
+        timer: 'border-amber-500 bg-amber-950/40',
+        stopwatch: 'border-cyan-500 bg-cyan-950/40',
+        scoreboard: 'border-red-500 bg-red-950/40'
+      };
+      activeTab.className = `mode-tab p-4 md:p-5 min-h-[104px] rounded-2xl border-2 ${colorMap[mode]} text-left transition flex flex-col justify-between active:scale-95`;
+
+      // パネル切替
+      document.querySelectorAll('.mode-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`panel-${mode}`).classList.remove('hidden');
+    }
+
+    function adjustInputNumber(inputId, delta, minVal, maxVal) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const current = parseInt(el.value) || minVal;
+      const next = Math.max(minVal, Math.min(maxVal, current + delta));
+      el.value = next;
+    }
+
+    function padZeroInput(el, maxVal) {
+      let val = parseInt(el.value, 10);
+      if (isNaN(val) || val < 0) val = 0;
+      if (val > maxVal) val = maxVal;
+      el.value = String(val).padStart(2, '0');
+    }
+
+    function applySportPreset(sport) {
+      const presets = {
+        basketball: { min: 8, sec: 0, periods: 4, intMin: 2, intSec: 0, label: 'バスケットボール' },
+        soccer:     { min: 15, sec: 0, periods: 2, intMin: 5, intSec: 0, label: 'サッカー' },
+        tagrugby:   { min: 7, sec: 0, periods: 2, intMin: 2, intSec: 0, label: 'タグラグビー' },
+        portball:   { min: 6, sec: 0, periods: 2, intMin: 2, intSec: 0, label: 'ポートボール' },
+        custom:     { min: 5, sec: 0, periods: 1, intMin: 1, intSec: 0, label: 'ゲームタイマー' }
+      };
+      const p = presets[sport];
+      document.getElementById('timer-min').value = p.min;
+      document.getElementById('timer-sec').value = String(p.sec).padStart(2, '0');
+      document.getElementById('timer-periods').value = p.periods;
+      document.getElementById('interval-min').value = p.intMin;
+      document.getElementById('interval-sec').value = String(p.intSec).padStart(2, '0');
+      document.getElementById('timer-label').value = p.label;
+      showToast(`「${p.label}」の設定を読み込みました`);
+    }
+
+    function setTeamColor(side, colorId) {
+      const idx = teamColors.findIndex(c => c.id === colorId);
+      if (idx === -1) return;
+      if (side === 'left') sbState.leftColorIdx = idx;
+      else sbState.rightColorIdx = idx;
+      showToast(`${side === 'left' ? '左チーム' : '右チーム'}の色を変更しました`);
+    }
+
+    // ==================== 全画面起動・初期化 ====================
+    function launchFullscreenDisplay() {
+      initAudio();
+      closeFlickKeyboard();
+
+      // ブラウザの全画面APIを呼び出し（ユーザー操作直後なので安全に動作）
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {});
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      }
+
+      // 画面切替
+      document.getElementById('setup-view').classList.add('hidden');
+      document.getElementById('display-view').classList.remove('hidden');
+
+      // 各モードの初期セットアップ
+      setupDisplayForMode();
+      showHudTemporarily();
+    }
+
+    function toggleBrowserFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function returnToSetup() {
+      stopLoop();
+      isRunning = false;
+      updateStartPauseButton();
+
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+
+      document.getElementById('display-view').classList.add('hidden');
+      document.getElementById('setup-view').classList.remove('hidden');
+    }
+
+    function setupDisplayForMode() {
+      stopLoop();
+      isRunning = false;
+      updateStartPauseButton();
+
+      // 全ステージ非表示
+      document.getElementById('stage-clock').classList.add('hidden');
+      document.getElementById('stage-shuttle').classList.add('hidden');
+      document.getElementById('stage-scoreboard').classList.add('hidden');
+      document.getElementById('mini-timer-box').classList.add('hidden');
+      document.getElementById('mini-timer-box').classList.remove('flex');
+      document.getElementById('btn-lap').classList.add('hidden');
+      document.getElementById('btn-next-period').classList.add('hidden');
+      document.getElementById('stopwatch-lap-display').classList.add('hidden');
+
+      if (currentMode === 'shuttle') {
+        document.getElementById('stage-shuttle').classList.remove('hidden');
+        document.getElementById('display-badge').textContent = '20m SHUTTLE RUN';
+        document.getElementById('display-sub-info').textContent = '新体力テスト 往復持久走';
+        resetShuttle();
+
+      } else if (currentMode === 'timer') {
+        const min = parseInt(document.getElementById('timer-min').value) || 0;
+        const sec = parseInt(document.getElementById('timer-sec').value) || 0;
+        const periods = parseInt(document.getElementById('timer-periods').value) || 1;
+        const intMin = parseInt(document.getElementById('interval-min').value) || 0;
+        const intSec = parseInt(document.getElementById('interval-sec').value) || 0;
+
+        timerConfig = {
+          periodSeconds: Math.max(1, min * 60 + sec),
+          totalPeriods: periods,
+          intervalSeconds: intMin * 60 + intSec,
+          label: document.getElementById('timer-label').value || 'TIMER',
+          autoInterval: document.getElementById('timer-auto-interval').checked,
+          showScoreboard: document.getElementById('timer-show-scoreboard').checked
+        };
+
+        resetTimer();
+
+        if (timerConfig.showScoreboard) {
+          // 得点板＋小型タイマーモードとして表示
+          sbState.timerSubMode = 'small-timer';
+          initScoreboardDisplay();
+        } else {
+          document.getElementById('stage-clock').classList.remove('hidden');
+          document.getElementById('display-badge').textContent = timerConfig.label;
+          if (timerConfig.totalPeriods > 1) {
+            document.getElementById('btn-next-period').classList.remove('hidden');
+          }
+        }
+
+      } else if (currentMode === 'stopwatch') {
+        document.getElementById('stage-clock').classList.remove('hidden');
+        document.getElementById('btn-lap').classList.remove('hidden');
+        document.getElementById('stopwatch-lap-display').classList.remove('hidden');
+        document.getElementById('display-badge').textContent = 'STOPWATCH';
+        document.getElementById('display-sub-info').textContent = 'タイム計測';
+        resetStopwatch();
+
+      } else if (currentMode === 'scoreboard') {
+        sbState.timerSubMode = document.getElementById('sb-timer-mode').value;
+        // タイマー連動が必要な場合は初期化
+        if (sbState.timerSubMode === 'small-timer') {
+          const min = parseInt(document.getElementById('timer-min').value) || 8;
+          const sec = parseInt(document.getElementById('timer-sec').value) || 0;
+          timerConfig.periodSeconds = min * 60 + sec;
+          timerConfig.totalPeriods = parseInt(document.getElementById('timer-periods').value) || 2;
+          resetTimer();
+        } else if (sbState.timerSubMode === 'small-stopwatch') {
+          resetStopwatch();
+        }
+        initScoreboardDisplay();
+      }
+    }
+
+    // ==================== スタート・一時停止・リセット制御 ====================
+    function toggleStartPause() {
+      initAudio();
+      // 得点板単独モード（タイマーなし）の場合
+      if (currentMode === 'scoreboard' && sbState.timerSubMode === 'none') {
+        showToast('得点板モードです（タイマー連動は設定から選べます）');
+        return;
+      }
+
+      if (isRunning) {
+        isRunning = false;
+        stopLoop();
+      } else {
+        isRunning = true;
+        lastTimestamp = performance.now();
+        startLoop();
+      }
+      updateStartPauseButton();
+      showHudTemporarily();
+    }
+
+    function updateStartPauseButton() {
+      const btn = document.getElementById('btn-start-pause');
+
+      if (isRunning) {
+        btn.className = 'px-8 py-4 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black text-lg md:text-xl shadow-lg flex items-center gap-3 transition transform active:scale-95';
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> <span>一時停止</span>';
+      } else {
+        btn.className = 'px-8 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg md:text-xl shadow-lg flex items-center gap-3 transition transform active:scale-95';
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> <span>スタート</span>';
+      }
+    }
+
+    function resetCurrentMode() {
+      isRunning = false;
+      stopLoop();
+      updateStartPauseButton();
+
+      if (currentMode === 'shuttle') {
+        resetShuttle();
+      } else if (currentMode === 'timer') {
+        resetTimer();
+      } else if (currentMode === 'stopwatch') {
+        resetStopwatch();
+      } else if (currentMode === 'scoreboard') {
+        sbState.leftScore = 0;
+        sbState.rightScore = 0;
+        sbState.leftSet = 0;
+        sbState.rightSet = 0;
+        renderScoreboard();
+        if (sbState.timerSubMode === 'small-timer') resetTimer();
+        if (sbState.timerSubMode === 'small-stopwatch') resetStopwatch();
+      }
+      showToast('リセットしました');
+    }
+
+    function startLoop() {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      const tick = (now) => {
+        if (!isRunning) return;
+        const deltaMs = now - lastTimestamp;
+        lastTimestamp = now;
+
+        updateLogic(deltaMs);
+        animationFrameId = requestAnimationFrame(tick);
+      };
+      animationFrameId = requestAnimationFrame(tick);
+    }
+
+    function stopLoop() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    function updateLogic(deltaMs) {
+      if (currentMode === 'shuttle') {
+        updateShuttle(deltaMs);
+      } else if (currentMode === 'timer' || (currentMode === 'scoreboard' && sbState.timerSubMode === 'small-timer')) {
+        updateTimer(deltaMs);
+      } else if (currentMode === 'stopwatch' || (currentMode === 'scoreboard' && sbState.timerSubMode === 'small-stopwatch')) {
+        updateStopwatch(deltaMs);
+      }
+    }
+
+    // ==================== 1. シャトルラン ロジック ====================
+    function getShuttleLevelInfo(lap) {
+      for (let i = 0; i < shuttleLevels.length; i++) {
+        if (lap <= shuttleLevels[i].cumLaps) {
+          return shuttleLevels[i];
+        }
+      }
+      return shuttleLevels[shuttleLevels.length - 1];
+    }
+
+    function resetShuttle() {
+      const startLap = Math.max(1, Math.min(247, parseInt(document.getElementById('shuttle-start-lap').value) || 1));
+      const cdSec = parseInt(document.getElementById('shuttle-countdown').value) || 0;
+      const lvlInfo = getShuttleLevelInfo(startLap);
+
+      shuttleState = {
+        lap: startLap,
+        countdownRemaining: cdSec,
+        isCountingDown: cdSec > 0,
+        lapElapsedMs: 0,
+        lapDurationMs: (20 / (lvlInfo.speed / 3.6)) * 1000,
+        lastNoteIndex: -1,
+        lastCdSecSpoken: cdSec + 1
+      };
+
+      renderShuttle();
+    }
+
+    function updateShuttle(deltaMs) {
+      // 開始前カウントダウン処理
+      if (shuttleState.isCountingDown) {
+        shuttleState.countdownRemaining -= deltaMs / 1000;
+        const ceilSec = Math.ceil(shuttleState.countdownRemaining);
+        if (ceilSec < shuttleState.lastCdSecSpoken && ceilSec > 0) {
+          shuttleState.lastCdSecSpoken = ceilSec;
+          playTone(440, 0.15, 'sine', 0.4);
+        }
+        if (shuttleState.countdownRemaining <= 0) {
+          shuttleState.isCountingDown = false;
+          playShuttleTurnBeep(false); // スタート合図音
+          shuttleState.lapElapsedMs = 0;
+          shuttleState.lastNoteIndex = 0;
+          // スタート直後（0拍目）に最初の「ド」を鳴らす
+          playShuttleNote(0, (shuttleState.lap % 2 === 1));
+        }
+        renderShuttle();
+        return;
+      }
+
+      // 本計測中の音階＆時間進行（公式音源と同じ9拍等間隔リズム）
+      shuttleState.lapElapsedMs += deltaMs;
+      const progress = Math.min(1, shuttleState.lapElapsedMs / shuttleState.lapDurationMs);
+
+      // 1区間を9等分し、0〜7拍目で「ド・レ・ミ・ファ・ソ・ラ・シ・ド」を鳴らす
+      const beatIdx = Math.floor(progress * 9);
+      if (beatIdx <= 7 && beatIdx > shuttleState.lastNoteIndex) {
+        shuttleState.lastNoteIndex = beatIdx;
+        const isGoingOut = (shuttleState.lap % 2 === 1);
+        playShuttleNote(beatIdx, isGoingOut);
+      }
+
+      // 9拍目（20m到達・折り返し）
+      if (shuttleState.lapElapsedMs >= shuttleState.lapDurationMs) {
+        const prevLevel = getShuttleLevelInfo(shuttleState.lap).level;
+        shuttleState.lap += 1;
+
+        if (shuttleState.lap > 247) {
+          isRunning = false;
+          updateStartPauseButton();
+          playManualBuzzer();
+          showToast('247回（最大回数）に到達しました！');
+          return;
+        }
+
+        const newLvlInfo = getShuttleLevelInfo(shuttleState.lap);
+        const isLevelUp = newLvlInfo.level > prevLevel;
+        playShuttleTurnBeep(isLevelUp);
+
+        shuttleState.lapElapsedMs = shuttleState.lapElapsedMs - shuttleState.lapDurationMs;
+        shuttleState.lapDurationMs = (20 / (newLvlInfo.speed / 3.6)) * 1000;
+        shuttleState.lastNoteIndex = 0;
+        // 折り返し直後（0拍目）の最初の音を鳴らす
+        playShuttleNote(0, (shuttleState.lap % 2 === 1));
+      }
+
+      renderShuttle();
+    }
+
+    function renderShuttle() {
+      const lvlInfo = getShuttleLevelInfo(shuttleState.lap);
+      document.getElementById('shuttle-level').textContent = lvlInfo.level;
+      document.getElementById('shuttle-speed').innerHTML = `${lvlInfo.speed.toFixed(1)} <span class="text-xs md:text-sm">km/h</span>`;
+
+      const cdOverlay = document.getElementById('shuttle-countdown-overlay');
+      const cdDigitsEl = document.getElementById('shuttle-countdown-digits');
+      const lapWrapper = document.getElementById('shuttle-lap-wrapper');
+      const countEl = document.getElementById('shuttle-lap-count');
+      const barEl = document.getElementById('shuttle-progress-bar');
+
+      if (shuttleState.isCountingDown) {
+        const sec = Math.max(1, Math.ceil(shuttleState.countdownRemaining));
+        cdOverlay.classList.remove('hidden');
+        lapWrapper.classList.add('hidden');
+        renderSevenSegment(cdDigitsEl, String(sec));
+        barEl.style.width = '0%';
+      } else {
+        cdOverlay.classList.add('hidden');
+        lapWrapper.classList.remove('hidden');
+        renderSevenSegment(countEl, String(shuttleState.lap));
+
+        const pct = Math.min(100, (shuttleState.lapElapsedMs / shuttleState.lapDurationMs) * 100);
+        barEl.style.width = `${pct}%`;
+      }
+    }
+
+    // ==================== 2. タイマー（試合）ロジック ====================
+    function resetTimer() {
+      timerState = {
+        remainingMs: timerConfig.periodSeconds * 1000,
+        currentPeriod: 1,
+        isInterval: false
+      };
+      renderTimer();
+    }
+
+    function nextPeriodManual() {
+      isRunning = false;
+      stopLoop();
+      updateStartPauseButton();
+
+      if (timerState.isInterval) {
+        timerState.isInterval = false;
+        timerState.currentPeriod += 1;
+        timerState.remainingMs = timerConfig.periodSeconds * 1000;
+      } else if (timerState.currentPeriod < timerConfig.totalPeriods) {
+        timerState.currentPeriod += 1;
+        timerState.remainingMs = timerConfig.periodSeconds * 1000;
+      } else {
+        timerState.currentPeriod = 1;
+        timerState.remainingMs = timerConfig.periodSeconds * 1000;
+      }
+      renderTimer();
+    }
+
+    function updateTimer(deltaMs) {
+      timerState.remainingMs -= deltaMs;
+
+      if (timerState.remainingMs <= 0) {
+        timerState.remainingMs = 0;
+        renderTimer();
+        playManualBuzzer();
+
+        // ピリオド進行判定
+        if (!timerState.isInterval && timerState.currentPeriod < timerConfig.totalPeriods) {
+          if (timerConfig.autoInterval && timerConfig.intervalSeconds > 0) {
+            timerState.isInterval = true;
+            timerState.remainingMs = timerConfig.intervalSeconds * 1000;
+            showToast('インターバル休憩を開始します');
+            renderTimer();
+            return;
+          } else {
+            timerState.currentPeriod += 1;
+            timerState.remainingMs = timerConfig.periodSeconds * 1000;
+            isRunning = false;
+            stopLoop();
+            updateStartPauseButton();
+            renderTimer();
+            return;
+          }
+        } else if (timerState.isInterval) {
+          timerState.isInterval = false;
+          timerState.currentPeriod += 1;
+          timerState.remainingMs = timerConfig.periodSeconds * 1000;
+          isRunning = false;
+          stopLoop();
+          updateStartPauseButton();
+          showToast(`第${timerState.currentPeriod}ピリオドの準備完了`);
+          renderTimer();
+          return;
+        } else {
+          // 全試合終了
+          isRunning = false;
+          stopLoop();
+          updateStartPauseButton();
+          showToast('試合終了！');
+          return;
+        }
+      }
+
+      renderTimer();
+    }
+
+    function formatTimeMs(ms, showDecimals = false) {
+      const totalSec = Math.max(0, ms / 1000);
+      const mins = Math.floor(totalSec / 60);
+      const secs = Math.floor(totalSec % 60);
+      const tenths = Math.floor((ms % 1000) / 100);
+
+      const mStr = String(mins).padStart(2, '0');
+      const sStr = String(secs).padStart(2, '0');
+      if (showDecimals) {
+        return `${mStr}:${sStr}.${tenths}`;
+      }
+      return `${mStr}:${sStr}`;
+    }
+
+    function formatStopwatchMs(ms, showTenths = true) {
+      const totalSec = Math.max(0, ms / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = Math.floor(totalSec % 60);
+      const tenths = Math.floor((ms % 1000) / 100);
+
+      const mStr = String(mins).padStart(2, '0');
+      const sStr = String(secs).padStart(2, '0');
+
+      // 1時間以上は「0:00:00」表記
+      if (hours >= 1) {
+        return `${hours}:${mStr}:${sStr}`;
+      }
+      // 1時間未満は「00:00.1」表記
+      if (showTenths) {
+        return `${mStr}:${sStr}.${tenths}`;
+      }
+      return `${mStr}:${sStr}`;
+    }
+
+    function getPeriodLabelText() {
+      if (timerState.isInterval) return 'INTERVAL（休憩）';
+      if (timerConfig.totalPeriods <= 1) return '';
+      if (timerConfig.totalPeriods === 2) {
+        return timerState.currentPeriod === 1 ? '前半（1ST HALF）' : '後半（2ND HALF）';
+      }
+      return `第 ${timerState.currentPeriod} クォーター / 全${timerConfig.totalPeriods}Q`;
+    }
+
+    function renderTimer() {
+      // 残り10秒未満は1/100秒表示、通常は分:秒表示（切り上げ）
+      let text = '';
+      if (timerState.remainingMs < 10000 && timerState.remainingMs > 0) {
+        text = formatTimeMs(timerState.remainingMs, true);
+      } else {
+        const ceilMs = Math.ceil(timerState.remainingMs / 1000) * 1000;
+        text = formatTimeMs(ceilMs, false);
+      }
+
+      const mainDigits = document.getElementById('main-clock-digits');
+      const banner = document.getElementById('clock-status-banner');
+      renderSevenSegment(mainDigits, text);
+
+      const miniDigits = document.getElementById('mini-timer-text');
+      if (timerState.isInterval) {
+        mainDigits.className = 'seg-display seg-theme-cyan select-none';
+        miniDigits.className = 'seg-display seg-theme-cyan';
+      } else if (timerState.remainingMs <= 10000) {
+        mainDigits.className = 'seg-display seg-theme-red select-none';
+        miniDigits.className = 'seg-display seg-theme-red';
+      } else {
+        mainDigits.className = 'seg-display seg-theme-amber select-none';
+        miniDigits.className = 'seg-display seg-theme-amber';
+      }
+
+      const periodLabel = getPeriodLabelText();
+      banner.textContent = periodLabel;
+      if (periodLabel) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+      document.getElementById('display-sub-info').textContent = '';
+
+      // 小型タイマー連動表示
+      renderSevenSegment(miniDigits, text);
+      document.getElementById('mini-timer-period').textContent = timerState.isInterval ? 'REST' : `P${timerState.currentPeriod}`;
+    }
+
+    // ==================== 3. ストップウォッチ ロジック ====================
+    function resetStopwatch() {
+      swState = {
+        elapsedMs: 0,
+        laps: [],
+        lastBeepCount: 0
+      };
+      document.getElementById('stopwatch-lap-display').innerHTML = '<span class="text-neutral-500">ラップボタンを押すと記録が表示されます</span>';
+      renderStopwatch();
+    }
+
+    function recordLap() {
+      if (currentMode !== 'stopwatch') return;
+      swState.laps.unshift(swState.elapsedMs);
+      const latest = swState.laps.slice(0, 3).map((ms, idx) => {
+        const lapNum = swState.laps.length - idx;
+        return `<span class="px-3 py-1 rounded-lg bg-neutral-900 border border-neutral-800">LAP ${lapNum}: ${formatStopwatchMs(ms, true)}</span>`;
+      }).join('');
+      document.getElementById('stopwatch-lap-display').innerHTML = latest;
+    }
+
+    function updateStopwatch(deltaMs) {
+      swState.elapsedMs += deltaMs;
+
+      if (document.getElementById('sw-beep-interval-enable').checked) {
+        const beepMin = parseInt(document.getElementById('sw-beep-min').value) || 0;
+        const beepSec = parseInt(document.getElementById('sw-beep-sec').value) || 0;
+        const intervalMs = (beepMin * 60 + beepSec) * 1000;
+        if (intervalMs > 0) {
+          const currentCount = Math.floor(swState.elapsedMs / intervalMs);
+          if (currentCount > swState.lastBeepCount) {
+            swState.lastBeepCount = currentCount;
+            playTone(880, 0.25, 'sine', 0.55);
+          }
+        }
+      }
+      renderStopwatch();
+    }
+
+    function renderStopwatch() {
+      const showTenths = document.getElementById('sw-show-ms').checked;
+      const text = formatStopwatchMs(swState.elapsedMs, showTenths);
+
+      const mainDigits = document.getElementById('main-clock-digits');
+      renderSevenSegment(mainDigits, text);
+      mainDigits.className = 'seg-display seg-theme-cyan select-none';
+      document.getElementById('clock-status-banner').textContent = 'ELAPSED TIME';
+
+      const miniDigits = document.getElementById('mini-timer-text');
+      miniDigits.className = 'seg-display seg-theme-cyan';
+      renderSevenSegment(miniDigits, formatStopwatchMs(swState.elapsedMs, false));
+      document.getElementById('mini-timer-period').textContent = 'TIME';
+    }
+
+    // ==================== 4. 得点板 ロジック ====================
+    function initScoreboardDisplay() {
+      document.getElementById('stage-scoreboard').classList.remove('hidden');
+      document.getElementById('display-badge').textContent = 'SCOREBOARD';
+      document.getElementById('display-sub-info').textContent = '得点タップ・スワイプで操作';
+
+      document.getElementById('sb-left-title').textContent = document.getElementById('sb-left-name').value.trim();
+      document.getElementById('sb-right-title').textContent = document.getElementById('sb-right-name').value.trim();
+
+      // サーブ権の表示ON/OFF設定反映
+      sbState.showServe = document.getElementById('sb-show-serve').checked;
+      const leftServeBtn = document.getElementById('serve-left-btn');
+      const rightServeBtn = document.getElementById('serve-right-btn');
+      if (sbState.showServe) {
+        leftServeBtn.classList.remove('hidden');
+        rightServeBtn.classList.remove('hidden');
+        setServe(sbState.serve);
+      } else {
+        leftServeBtn.classList.add('hidden');
+        rightServeBtn.classList.add('hidden');
+      }
+
+      // 小型タイマー表示の有無
+      const miniBox = document.getElementById('mini-timer-box');
+      if (sbState.timerSubMode !== 'none') {
+        miniBox.classList.remove('hidden');
+        miniBox.classList.add('flex');
+      } else {
+        miniBox.classList.add('hidden');
+        miniBox.classList.remove('flex');
+      }
+
+      applyScoreboardColors();
+      renderScoreboard();
+    }
+
+    function applyScoreboardColors() {
+      const lc = teamColors[sbState.leftColorIdx];
+      const rc = teamColors[sbState.rightColorIdx];
+
+      document.getElementById('sb-left-bar').className = `w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl ${lc.barBg} ${lc.barText} flex items-center justify-center gap-2 transition shadow-lg active:scale-98`;
+      document.getElementById('score-left-digits').className = `flip-card seg-display ${lc.segTheme}`;
+
+      document.getElementById('sb-right-bar').className = `w-full min-h-[48px] md:min-h-[60px] py-2 px-4 rounded-2xl ${rc.barBg} ${rc.barText} flex items-center justify-center gap-2 transition shadow-lg active:scale-98`;
+      document.getElementById('score-right-digits').className = `flip-card seg-display ${rc.segTheme}`;
+    }
+
+    function cycleTeamColor(side) {
+      if (side === 'left') {
+        sbState.leftColorIdx = (sbState.leftColorIdx + 1) % teamColors.length;
+      } else {
+        sbState.rightColorIdx = (sbState.rightColorIdx + 1) % teamColors.length;
+      }
+      applyScoreboardColors();
+    }
+
+    function changeScore(side, delta) {
+      const el = document.getElementById(`score-${side}-digits`);
+      if (side === 'left') {
+        sbState.leftScore = Math.max(0, Math.min(999, sbState.leftScore + delta));
+      } else {
+        sbState.rightScore = Math.max(0, Math.min(999, sbState.rightScore + delta));
+      }
+
+      // めくり上がりアニメーション発火
+      el.classList.remove('animate-flip-up', 'animate-flip-down');
+      void el.offsetWidth; // リフロー強制
+      el.classList.add(delta > 0 ? 'animate-flip-up' : 'animate-flip-down');
+
+      // 得点時のサーブ権自動移動オプション
+      if (delta > 0 && document.getElementById('sb-auto-serve').checked) {
+        setServe(side);
+      }
+
+      playTone(delta > 0 ? 660 : 330, 0.08, 'sine', 0.25);
+      renderScoreboard();
+    }
+
+    function changeSet(side, delta) {
+      if (side === 'left') {
+        sbState.leftSet = Math.max(0, Math.min(99, sbState.leftSet + delta));
+      } else {
+        sbState.rightSet = Math.max(0, Math.min(99, sbState.rightSet + delta));
+      }
+      playTone(520, 0.08, 'sine', 0.2);
+      renderScoreboard();
+    }
+
+    function setServe(side) {
+      sbState.serve = side;
+      const leftBtn = document.getElementById('serve-left-btn');
+      const rightBtn = document.getElementById('serve-right-btn');
+
+      if (side === 'left') {
+        leftBtn.className = 'mt-2 px-4 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs md:text-sm font-black flex items-center gap-2 transition shadow-md shadow-amber-500/20';
+        rightBtn.className = 'mt-2 px-4 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-600 text-xs md:text-sm font-black flex items-center gap-2 transition';
+      } else {
+        rightBtn.className = 'mt-2 px-4 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs md:text-sm font-black flex items-center gap-2 transition shadow-md shadow-amber-500/20';
+        leftBtn.className = 'mt-2 px-4 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-600 text-xs md:text-sm font-black flex items-center gap-2 transition';
+      }
+    }
+
+    function swapSides() {
+      // スコア・セット・色・名前・サーブ権を左右入れ替え
+      [sbState.leftScore, sbState.rightScore] = [sbState.rightScore, sbState.leftScore];
+      [sbState.leftSet, sbState.rightSet] = [sbState.rightSet, sbState.leftSet];
+      [sbState.leftColorIdx, sbState.rightColorIdx] = [sbState.rightColorIdx, sbState.leftColorIdx];
+
+      const leftTitleEl = document.getElementById('sb-left-title');
+      const rightTitleEl = document.getElementById('sb-right-title');
+      const tmpName = leftTitleEl.textContent;
+      leftTitleEl.textContent = rightTitleEl.textContent;
+      rightTitleEl.textContent = tmpName;
+
+      setServe(sbState.serve === 'left' ? 'right' : 'left');
+      applyScoreboardColors();
+      renderScoreboard();
+      showToast('コートチェンジ（左右入れ替え）しました');
+    }
+
+    function renderScoreboard() {
+      // 3桁ゼロ埋め表示（例: 000, 015, 102）を7セグメントで描画
+      renderSevenSegment(document.getElementById('score-left-digits'), String(sbState.leftScore).padStart(3, '0'));
+      renderSevenSegment(document.getElementById('score-right-digits'), String(sbState.rightScore).padStart(3, '0'));
+      renderSevenSegment(document.getElementById('set-left-val'), String(sbState.leftSet));
+      renderSevenSegment(document.getElementById('set-right-val'), String(sbState.rightSet));
+    }
+
+    // 得点板のスワイプめくりジェスチャー設定
+    function setupScoreSwipeGestures() {
+      ['left', 'right'].forEach(side => {
+        const el = document.getElementById(`score-${side}-touch`);
+        let startY = 0;
+        let isDragging = false;
+
+        // タッチ操作
+        el.addEventListener('touchstart', (e) => {
+          startY = e.touches[0].clientY;
+          isDragging = true;
+        }, { passive: true });
+
+        el.addEventListener('touchend', (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          const endY = e.changedTouches[0].clientY;
+          const diffY = startY - endY;
+          if (Math.abs(diffY) > 25) {
+            // 上にスワイプで+1、下にスワイプで-1
+            changeScore(side, diffY > 0 ? 1 : -1);
+          } else {
+            // 軽いタップでも+1
+            changeScore(side, 1);
+          }
+        });
+
+        // マウスドラッグ・クリック操作（Chromebookのトラックパッド対応）
+        el.addEventListener('mousedown', (e) => {
+          startY = e.clientY;
+          isDragging = true;
+        });
+
+        el.addEventListener('mouseup', (e) => {
+          if (!isDragging) return;
+          isDragging = false;
+          const diffY = startY - e.clientY;
+          if (Math.abs(diffY) > 25) {
+            changeScore(side, diffY > 0 ? 1 : -1);
+          } else {
+            changeScore(side, 1);
+          }
+        });
+      });
+    }
+
+    // ==================== 全画面HUD自動非表示 & トースト通知 ====================
+    function showHudTemporarily() {
+      const topRight = document.getElementById('hud-top-right');
+      topRight.classList.remove('hud-top-hidden');
+
+      if (hudTimeout) clearTimeout(hudTimeout);
+      hudTimeout = setTimeout(() => {
+        // 下部操作バーは常時表示し、右上の設定ボタンのみ自動で隠す
+        if (isRunning || currentMode === 'scoreboard') {
+          topRight.classList.add('hud-top-hidden');
+        }
+      }, 3500);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast-message');
+      toast.textContent = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2400);
+    }
+
+    // キーボードショートカット（Chromebookのスペースキーで開始/停止）
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('display-view').classList.contains('hidden')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        toggleStartPause();
+      }
+    });
+
+    // 長押し・右クリック・ダブルタップ時のコンテキストメニューおよびズーム防止
+    window.addEventListener('contextmenu', (e) => {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+        e.preventDefault();
+      }
+    });
+
+    let lastTouchEndTime = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEndTime <= 300) {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+          e.preventDefault();
+        }
+      }
+      lastTouchEndTime = now;
+    }, { passive: false });
+
+    // ==================== かなフリック入力パネル ロジック ====================
+    let activeFlickTargetInput = null;
+    let flickKanaMode = 'katakana'; // 'katakana'（初期値） | 'hiragana'
+
+    // 添付画像準拠の12キー配列 [中央(タップ), 左フリック, 上フリック, 右フリック, 下フリック]
+    const FLICK_KEYS_HIRAGANA = [
+      { label: 'あ', chars: ['あ', 'い', 'う', 'え', 'お'] },
+      { label: 'か', chars: ['か', 'き', 'く', 'け', 'こ'] },
+      { label: 'さ', chars: ['さ', 'し', 'す', 'せ', 'そ'] },
+      { label: 'た', chars: ['た', 'ち', 'つ', 'て', 'と'] },
+      { label: 'な', chars: ['な', 'に', 'ぬ', 'ね', 'の'] },
+      { label: 'は', chars: ['は', 'ひ', 'ふ', 'へ', 'ほ'] },
+      { label: 'ま', chars: ['ま', 'み', 'む', 'め', 'も'] },
+      { label: 'や', chars: ['や', '（', 'ゆ', '）', 'よ'] },
+      { label: 'ら', chars: ['ら', 'り', 'る', 'れ', 'ろ'] },
+      { label: '^^', isMod: true, chars: ['゛゜小', '゛', '゜', '小', 'ー'] },
+      { label: 'わ', chars: ['わ', 'を', 'ん', 'ー', '　'] },
+      { label: '、。?!', chars: ['、', '。', '？', '！', '・'] }
+    ];
+
+    const FLICK_KEYS_KATAKANA = [
+      { label: 'ア', chars: ['ア', 'イ', 'ウ', 'エ', 'オ'] },
+      { label: 'カ', chars: ['カ', 'キ', 'ク', 'ケ', 'コ'] },
+      { label: 'サ', chars: ['サ', 'シ', 'ス', 'セ', 'ソ'] },
+      { label: 'タ', chars: ['タ', 'チ', 'ツ', 'テ', 'ト'] },
+      { label: 'ナ', chars: ['ナ', 'ニ', 'ヌ', 'ネ', 'ノ'] },
+      { label: 'ハ', chars: ['ハ', 'ヒ', 'フ', 'ヘ', 'ホ'] },
+      { label: 'マ', chars: ['マ', 'ミ', 'ム', 'メ', 'モ'] },
+      { label: 'ヤ', chars: ['ヤ', '（', 'ユ', '）', 'ヨ'] },
+      { label: 'ラ', chars: ['ラ', 'リ', 'ル', 'レ', 'ロ'] },
+      { label: '^^', isMod: true, chars: ['゛゜小', '゛', '゜', '小', 'ー'] },
+      { label: 'ワ', chars: ['ワ', 'ヲ', 'ン', 'ー', '　'] },
+      { label: '、。?!', chars: ['、', '。', '？', '！', '・'] }
+    ];
+
+    // 濁点・半濁点・小文字変換マップ（ひらがな・カタカナ両対応）
+    const KANA_MOD_CYCLE = {
+      'か':'が','が':'か','き':'ぎ','ぎ':'き','く':'ぐ','ぐ':'く','け':'げ','げ':'け','こ':'ご','ご':'こ',
+      'さ':'ざ','ざ':'さ','し':'じ','じ':'し','す':'ず','ず':'す','せ':'ぜ','ぜ':'せ','そ':'ぞ','ぞ':'そ',
+      'た':'だ','だ':'た','ち':'ぢ','ぢ':'ち','つ':'づ','づ':'っ','っ':'つ','て':'で','で':'て','と':'ど','ど':'と',
+      'は':'ば','ば':'ぱ','ぱ':'は','ひ':'び','び':'ぴ','ぴ':'ひ','ふ':'ぶ','ぶ':'ぷ','ぷ':'ふ','へ':'べ','べ':'ぺ','ぺ':'へ','ほ':'ぼ','ぼ':'ぽ','ぽ':'ほ',
+      'あ':'ぁ','ぁ':'あ','い':'ぃ','ぃ':'い','う':'ぅ','ぅ':'ヴ','ヴ':'う','え':'ぇ','ぇ':'え','お':'ぉ','ぉ':'お',
+      'や':'ゃ','ゃ':'や','ゆ':'ゅ','ゅ':'ゆ','よ':'ょ','ょ':'よ','わ':'ゎ','ゎ':'わ',
+      'カ':'ガ','ガ':'カ','キ':'ギ','ギ':'キ','ク':'グ','グ':'ク','ケ':'ゲ','ゲ':'ケ','コ':'ゴ','ゴ':'コ',
+      'サ':'ザ','ザ':'サ','シ':'ジ','ジ':'シ','ス':'ズ','ズ':'ス','セ':'ゼ','ゼ':'セ','ソ':'ゾ','ゾ':'ソ',
+      'タ':'ダ','ダ':'タ','チ':'ヂ','ヂ':'チ','ツ':'ヅ','ヅ':'ッ','ッ':'ツ','テ':'デ','デ':'テ','ト':'ド','ド':'ト',
+      'ハ':'バ','バ':'パ','パ':'ハ','ヒ':'ビ','ビ':'ピ','ピ':'ヒ','フ':'ブ','ブ':'プ','プ':'フ','ヘ':'ベ','ベ':'ペ','ペ':'ヘ','ホ':'ボ','ボ':'ポ','ポ':'ホ',
+      'ア':'ァ','ァ':'ア','イ':'ィ','ィ':'イ','ウ':'ゥ','ゥ':'ヴ','エ':'ェ','ェ':'エ','オ':'ォ','ォ':'オ',
+      'ヤ':'ャ','ャ':'ヤ','ユ':'ュ','ュ':'ユ','ヨ':'ョ','ョ':'ヨ','ワ':'ヮ','ヮ':'ワ'
+    };
+
+    function toggleFlickKanaMode() {
+      flickKanaMode = flickKanaMode === 'katakana' ? 'hiragana' : 'katakana';
+      const toggleBtn = document.getElementById('flick-kana-toggle-btn');
+      if (toggleBtn) {
+        if (flickKanaMode === 'katakana') {
+          toggleBtn.textContent = 'カタカナ';
+          toggleBtn.className = 'px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black text-xs shadow-sm transition';
+        } else {
+          toggleBtn.textContent = 'ひらがな';
+          toggleBtn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs shadow-sm transition';
+        }
+      }
+      renderFlickGrid();
+    }
+
+    function renderFlickGrid() {
+      const grid = document.getElementById('flick-grid');
+      const guide = document.getElementById('flick-guide-bar');
+      grid.innerHTML = '';
+
+      const keyList = flickKanaMode === 'katakana' ? FLICK_KEYS_KATAKANA : FLICK_KEYS_HIRAGANA;
+
+      keyList.forEach((keyObj) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flick-key h-14 sm:h-16 rounded-2xl bg-white hover:bg-neutral-50 shadow-sm border border-neutral-300 flex flex-col items-center justify-center relative';
+        if (keyObj.label === 'わ' || keyObj.label === 'ワ') {
+          btn.innerHTML = `<span class="text-2xl font-bold leading-none">${keyObj.label}<span class="text-sm align-bottom">_</span></span>`;
+        } else {
+          btn.innerHTML = `<span class="text-2xl font-bold leading-none">${keyObj.label}</span>`;
+        }
+
+        let startX = 0, startY = 0, active = false;
+
+        const onStart = (cx, cy) => {
+          startX = cx;
+          startY = cy;
+          active = true;
+          guide.innerHTML = `
+            <span class="text-neutral-500">←${keyObj.chars[1]}</span>
+            <span class="text-neutral-500">↑${keyObj.chars[2]}</span>
+            <span class="text-black font-black text-sm px-2 py-0.5 rounded bg-amber-200">${keyObj.chars[0]}</span>
+            <span class="text-neutral-500">→${keyObj.chars[3]}</span>
+            <span class="text-neutral-500">↓${keyObj.chars[4]}</span>
+          `;
+        };
+
+        const onEnd = (cx, cy) => {
+          if (!active) return;
+          active = false;
+          const dx = cx - startX;
+          const dy = cy - startY;
+          const threshold = 22;
+          let dirIdx = 0; // 0:中央, 1:左, 2:上, 3:右, 4:下
+
+          if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+              dirIdx = dx < 0 ? 1 : 3;
+            } else {
+              dirIdx = dy < 0 ? 2 : 4;
+            }
+          }
+
+          if (keyObj.isMod && dirIdx === 0) {
+            applyKanaModifier();
+          } else {
+            insertFlickChar(keyObj.chars[dirIdx]);
+          }
+          guide.innerHTML = '<span>タップまたは上下左右へフリックして入力</span>';
+        };
+
+        btn.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          const t = e.touches[0];
+          onStart(t.clientX, t.clientY);
+        }, { passive: false });
+
+        btn.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          const t = e.changedTouches[0];
+          onEnd(t.clientX, t.clientY);
+        });
+
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          onStart(e.clientX, e.clientY);
+        });
+
+        btn.addEventListener('mouseup', (e) => {
+          e.preventDefault();
+          onEnd(e.clientX, e.clientY);
+        });
+
+        grid.appendChild(btn);
+      });
+    }
+
+    function initFlickKeyboard() {
+      renderFlickGrid();
+      setupFlickPanelDrag();
+    }
+
+    function openFlickKeyboard(inputId) {
+      activeFlickTargetInput = document.getElementById(inputId);
+      const panel = document.getElementById('flick-keyboard-panel');
+      panel.classList.remove('hidden');
+
+      // モードごとの推奨位置へ自動配置
+      const panelW = panel.offsetWidth || 350;
+      const panelH = panel.offsetHeight || 340;
+      let targetLeft = window.innerWidth - panelW - 24;
+      let targetTop = 24;
+
+      if (inputId === 'timer-label' || currentMode === 'timer') {
+        // タイマー（試合）モード：右上（入力欄の上付近）
+        const inputEl = document.getElementById('timer-label');
+        if (inputEl) {
+          const rect = inputEl.getBoundingClientRect();
+          targetLeft = Math.max(12, Math.min(window.innerWidth - panelW - 12, rect.right - panelW));
+          targetTop = Math.max(12, rect.top - panelH - 12);
+        }
+      } else if (inputId === 'sb-left-name' || inputId === 'sb-right-name' || currentMode === 'scoreboard') {
+        // 得点板モード：得点板オプション（左右チーム名の間・中央）
+        const sbPanel = document.getElementById('panel-scoreboard');
+        if (sbPanel) {
+          const rect = sbPanel.getBoundingClientRect();
+          targetLeft = Math.max(12, Math.min(window.innerWidth - panelW - 12, rect.left + (rect.width - panelW) / 2));
+          targetTop = Math.max(12, Math.min(window.innerHeight - panelH - 12, rect.top + 8));
+        }
+      }
+
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+      panel.style.left = `${targetLeft}px`;
+      panel.style.top = `${targetTop}px`;
+    }
+
+    function closeFlickKeyboard() {
+      document.getElementById('flick-keyboard-panel').classList.add('hidden');
+    }
+
+    function insertFlickChar(ch) {
+      if (!activeFlickTargetInput) return;
+      activeFlickTargetInput.value += ch;
+    }
+
+    function flickBackspace() {
+      if (!activeFlickTargetInput) return;
+      activeFlickTargetInput.value = activeFlickTargetInput.value.slice(0, -1);
+    }
+
+    function applyKanaModifier() {
+      if (!activeFlickTargetInput) return;
+      const val = activeFlickTargetInput.value;
+      if (!val) return;
+      const lastChar = val.slice(-1);
+      const nextChar = KANA_MOD_CYCLE[lastChar];
+      if (nextChar) {
+        activeFlickTargetInput.value = val.slice(0, -1) + nextChar;
+      }
+    }
+
+    // パネル自由ドラッグ移動機能
+    function setupFlickPanelDrag() {
+      const panel = document.getElementById('flick-keyboard-panel');
+      const handle = document.getElementById('flick-drag-handle');
+      let dragging = false, offsetX = 0, offsetY = 0;
+
+      const startDrag = (cx, cy) => {
+        dragging = true;
+        const rect = panel.getBoundingClientRect();
+        offsetX = cx - rect.left;
+        offsetY = cy - rect.top;
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.top}px`;
+      };
+
+      const moveDrag = (cx, cy) => {
+        if (!dragging) return;
+        const maxX = window.innerWidth - panel.offsetWidth;
+        const maxY = window.innerHeight - panel.offsetHeight;
+        const nx = Math.max(0, Math.min(maxX, cx - offsetX));
+        const ny = Math.max(0, Math.min(maxY, cy - offsetY));
+        panel.style.left = `${nx}px`;
+        panel.style.top = `${ny}px`;
+      };
+
+      const endDrag = () => { dragging = false; };
+
+      handle.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        startDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+      window.addEventListener('mouseup', endDrag);
+
+      handle.addEventListener('touchstart', (e) => {
+        if (e.target.closest('button')) return;
+        const t = e.touches[0];
+        startDrag(t.clientX, t.clientY);
+      }, { passive: true });
+      window.addEventListener('touchmove', (e) => {
+        if (!dragging) return;
+        const t = e.touches[0];
+        moveDrag(t.clientX, t.clientY);
+      }, { passive: true });
+      window.addEventListener('touchend', endDrag);
+    }
+
+    // 初期化実行
+    window.onload = () => {
+      setupScoreSwipeGestures();
+      initFlickKeyboard();
+    };
+  </script>
+</body>
+</html>
